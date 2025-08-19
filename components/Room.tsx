@@ -25,11 +25,11 @@ export default function Room({ onNavigate }: RoomProps) {
   ]
 
   const rules = [
-    "Everyone is dealt the same random set of an adjective and 7 nouns.",
-    "Pick the match you think will be most popular. No chats or collusion allowed.",
-    "System will auto-pick a noun for you if the timer expires.",
-    "Scoring: 10 × (n - 1), where n is the number of players who picked the same noun.",
-    "Your share of the prize pool equals your share of points for the round.",
+    "7 Nouns + 1 Adjective",
+    "Pick privately. No chat.",
+    "Auto-pick if timer expires.",
+    "Scoring: 10 × (n - 1)",
+    "Prize pool splits by points.",
   ]
 
   const handleQuickJoin = (stake: number) => {
@@ -47,10 +47,10 @@ export default function Room({ onNavigate }: RoomProps) {
           <h1 className="text-2xl font-bold mb-4">Waiting Room</h1>
         </div>
 
-        <div className="text-center text-muted-foreground">Game starts once 4 players have joined.</div>
+        <div className="text-center text-muted-foreground">Auto-start when 4+ players have joined.</div>
 
         <div className="space-y-4">
-          <SectionHeader title="Switch Rooms" />
+          <SectionHeader title="Quick Join (switch room)" />
           <div className="flex gap-2">
             {quickJoinOptions.map((option) => (
               <Button key={option.name} variant="outline" size="sm" onClick={() => handleQuickJoin(option.stake)}>

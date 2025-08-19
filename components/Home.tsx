@@ -55,9 +55,11 @@ export default function Home({ onNavigate }: HomeProps) {
           <div className="grid grid-cols-4 gap-2">
             <Button variant="outline" className="bg-transparent" onClick={() => onNavigate("Leaderboard")}>
               <Icons.Leaderboard />
+              Leaderboard
             </Button>
             <Button variant="outline" className="bg-transparent" onClick={() => onNavigate("Rewards")}>
               <Icons.Rewards />
+              Rewards
             </Button>
             <Button variant="outline" className="bg-transparent" onClick={() => onNavigate("Settings")}>
               <Icons.Gear />
@@ -69,7 +71,7 @@ export default function Home({ onNavigate }: HomeProps) {
         </div>
 
         <Frame className="max-w-md mx-auto">
-          <SectionHeader title="Join a Room" />
+          <SectionHeader title="Quick Join" />
           <div className="space-y-3">
             {quickJoinOptions.map((option) => (
               <div
