@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useGame } from "./GameContext"
@@ -16,6 +16,10 @@ interface LobbyProps {
 export default function Lobby({ onNavigate }: LobbyProps) {
   const { setStake, setInRoom } = useGame()
   const [filter, setFilter] = useState<string>("All")
+
+  useEffect(() => {
+    setInRoom(false)
+  }, [setInRoom])
 
   const allRooms = [
     { stake: 50, players: 3, capacity: 12, tier: "Casual" },

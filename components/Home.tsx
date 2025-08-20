@@ -1,5 +1,6 @@
 "use client"
 
+import { useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { useGame } from "./GameContext"
 import Frame from "./shared/Frame"
@@ -13,6 +14,10 @@ interface HomeProps {
 
 export default function Home({ onNavigate }: HomeProps) {
   const { setStake, lastStake, setInRoom, logout } = useGame()
+
+  useEffect(() => {
+    setInRoom(false)
+  }, [setInRoom])
 
   const quickJoinOptions = [
     { name: "Casual", stake: 50, players: 3 },
@@ -55,11 +60,9 @@ export default function Home({ onNavigate }: HomeProps) {
           <div className="grid grid-cols-4 gap-2">
             <Button variant="outline" className="bg-transparent" onClick={() => onNavigate("Leaderboard")}>
               <Icons.Leaderboard />
-              Leaderboard
             </Button>
             <Button variant="outline" className="bg-transparent" onClick={() => onNavigate("Rewards")}>
               <Icons.Rewards />
-              Rewards
             </Button>
             <Button variant="outline" className="bg-transparent" onClick={() => onNavigate("Settings")}>
               <Icons.Gear />
@@ -71,7 +74,7 @@ export default function Home({ onNavigate }: HomeProps) {
         </div>
 
         <Frame className="max-w-md mx-auto">
-          <SectionHeader title="Quick Join" />
+          <SectionHeader title="Join a Room" />
           <div className="space-y-3">
             {quickJoinOptions.map((option) => (
               <div
