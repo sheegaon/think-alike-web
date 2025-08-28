@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { GameProvider } from "./GameContext"
 import Login from "./Login"
 import Home from "./Home"
 import Lobby from "./Lobby"
@@ -58,5 +59,9 @@ export default function App() {
     }
   }
 
-  return <div className="min-h-screen bg-background">{renderScreen()}</div>
+  return (
+    <GameProvider>
+      <div className="min-h-screen bg-background">{renderScreen()}</div>
+    </GameProvider>
+  )
 }
