@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { useGame } from "./GameContext"
 import Frame from "./shared/Frame"
@@ -8,23 +8,64 @@ import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
 import { Icons } from "./shared/icons"
 import type { Screen } from "./screens"
+import { getRooms, type RoomResponse } from "@/lib/rest"
 
 interface HomeProps {
   onNavigate: (screen: Screen) => void
 }
 
+interface QuickJoinOption {
+  name: string
+  stake: number
+  players: number
+}
+
+// Helper function to format tier names
+const formatTierName = (tier: string) => {
+  return tier
+    .split("_")
+    .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
+    .join(" ")
+}
+
 export default function Home({ onNavigate }: HomeProps) {
   const { setStake, lastStake, setInRoom, logout } = useGame()
+  const [quickJoinOptions, setQuickJoinOptions] = useState<QuickJoinOption[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchQuickJoinData = useCallback(async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const response = await getRooms()
+      const tiers: Record<string, { stake: number; players: number }> = {}
+
+      response.rooms.forEach((room) => {
+        const tierName = formatTierName(room.tier)
+        if (!tiers[tierName]) {
+          tiers[tierName] = { stake: room.stake, players: 0 }
+        }
+        tiers[tierName].players += room.player_count
+      })
+
+      const options = Object.entries(tiers).map(([name, data]) => ({
+        name,
+        ...data,
+      }))
+
+      setQuickJoinOptions(options)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
 
   useEffect(() => {
     setInRoom(false)
-  }, [setInRoom])
-
-  const quickJoinOptions = [
-    { name: "Casual", stake: 50, players: 3 },
-    { name: "Competitive", stake: 200, players: 7 },
-    { name: "High Stakes", stake: 500, players: 2 },
-  ]
+    fetchQuickJoinData()
+  }, [setInRoom, fetchQuickJoinData])
 
   const handleQuickJoin = (stake: number) => {
     setStake(stake)
@@ -75,22 +116,32 @@ export default function Home({ onNavigate }: HomeProps) {
         </div>
 
         <Frame className="max-w-md mx-auto">
-          <SectionHeader title="Join a Room" />
+          <SectionHeader title="Join a Room">
+            <Button variant="ghost" size="sm" onClick={fetchQuickJoinData} disabled={isLoading}>
+              <Icons.Refresh />
+            </Button>
+          </SectionHeader>
           <div className="space-y-3">
-            {quickJoinOptions.map((option) => (
-              <div
-                key={option.name}
-                className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                onClick={() => handleQuickJoin(option.stake)}
-              >
-                <div>
-                  <div className="font-medium">{option.name}</div>
-                  <div className="text-sm text-muted-foreground">
-                    {option.players} players • Stake {option.stake} • Entry fee {Math.round(option.stake * 0.02)}
+            {isLoading ? (
+              <div className="text-center text-muted-foreground">Loading...</div>
+            ) : error ? (
+              <div className="text-center text-red-500">Error: {error}</div>
+            ) : (
+              quickJoinOptions.map((option) => (
+                <div
+                  key={option.name}
+                  className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
+                  onClick={() => handleQuickJoin(option.stake)}
+                >
+                  <div>
+                    <div className="font-medium">{option.name}</div>
+                    <div className="text-sm text-muted-foreground">
+                      {option.players} players • Stake {option.stake} • Entry fee {Math.round(option.stake * 0.02)}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              ))
+            )}
           </div>
         </Frame>
       </div>

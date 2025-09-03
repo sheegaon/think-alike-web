@@ -73,6 +73,23 @@ export interface PlayerResponse {
   created_at: string
 }
 
+export interface RoomResponse {
+    room_key: string;
+    tier: string;
+    stake: number;
+    player_count: number;
+    max_players: number;
+    spectators: number;
+    state: string;
+    pot: number;
+    entry_fee: number;
+}
+
+export interface RoomListResponse {
+    rooms: RoomResponse[];
+    total: number;
+}
+
 export interface RoomQuickJoinResponse {
   failure_code: number
   room_key: string
@@ -153,6 +170,15 @@ export async function createOrGetPlayer(username: string): Promise<PlayerRespons
     // Re-throw other errors
     throw error
   }
+}
+
+/**
+ * Get list of available rooms
+ * @param tier - Optional tier to filter by
+ */
+export async function getRooms(tier?: string): Promise<RoomListResponse> {
+  const params = tier ? { tier } : {}
+  return call("rooms_list", { params })
 }
 
 /**
