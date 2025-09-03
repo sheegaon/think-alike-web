@@ -8,9 +8,10 @@ import ProgressBar from "./shared/ProgressBar"
 import StatusBar from "./shared/StatusBar"
 import { useGame } from "./GameContext"
 import { Icons } from "./shared/icons"
+import type { Screen } from "./screens"
 
 interface SpectatorProps {
-  onNavigate: (screen: string) => void
+  onNavigate: (screen: Screen) => void
 }
 
 export default function Spectator({ onNavigate }: SpectatorProps) {

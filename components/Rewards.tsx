@@ -9,9 +9,10 @@ import StatusBar from "./shared/StatusBar"
 import { useGame } from "./GameContext"
 import { useEffect, useState } from "react"
 import { Icons } from "./shared/icons"
+import type { Screen } from "./screens"
 
 interface RewardsProps {
-  onNavigate: (screen: string) => void
+  onNavigate: (screen: Screen) => void
 }
 
 export default function Rewards({ onNavigate }: RewardsProps) {

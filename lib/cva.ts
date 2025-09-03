@@ -1,44 +1,41 @@
 // Simple replacement for class-variance-authority to fix loading issues in v0
 import { cn } from "./utils"
 
-type VariantConfig = {
-  variants?: Record<string, Record<string, string>>
-  defaultVariants?: Record<string, string>
+type VariantsConfig = Record<string, Record<string, string>>;
+
+type CvaConfig<T extends VariantsConfig> = {
+  variants?: T,
+  defaultVariants?: { [K in keyof T]?: keyof T[K] }
 }
 
-type VariantProps<T> = T extends (...args: any[]) => any
-  ? {
-      [K in keyof Parameters<T>[0]]?: Parameters<T>[0][K] extends Record<string, any>
-        ? keyof Parameters<T>[0][K]
-        : Parameters<T>[0][K]
-    }
-  : never
+type CvaProps<T extends VariantsConfig> = {
+  [K in keyof T]?: keyof T[K] | null
+}
 
-export function cva(base: string, config?: VariantConfig) {
-  return (props: Record<string, any> = {}) => {
-    const { className, ...variants } = props
-
-    let classes = base
-
+export function cva<T extends VariantsConfig>(
+  base: string,
+  config?: CvaConfig<T>
+) {
+  return (props: CvaProps<T> & { className?: string, [key: string]: any }) => {
+    let resultClasses = base;
     if (config?.variants) {
-      Object.entries(variants).forEach(([key, value]) => {
-        if (value && config.variants?.[key]?.[value]) {
-          classes += ` ${config.variants[key][value]}`
+        for (const variantName of Object.keys(config.variants)) {
+            const variantPropValue = props[variantName];
+            const defaultVariantValue = config.defaultVariants?.[variantName];
+            
+            const value = variantPropValue ?? defaultVariantValue;
+            
+            if (value) {
+                const classForVariant = config.variants[variantName][value as string];
+                if (classForVariant) {
+                    resultClasses = `${resultClasses} ${classForVariant}`;
+                }
+            }
         }
-      })
-
-      // Apply default variants for missing props
-      if (config.defaultVariants) {
-        Object.entries(config.defaultVariants).forEach(([key, defaultValue]) => {
-          if (variants[key] === undefined && config.variants?.[key]?.[defaultValue]) {
-            classes += ` ${config.variants[key][defaultValue]}`
-          }
-        })
-      }
     }
-
-    return cn(classes, className)
+    
+    return cn(resultClasses, props.className);
   }
 }
 
-export type { VariantProps }
+export type VariantProps<T extends (...args: any) => any> = Omit<Parameters<T>[0], 'className'>;

@@ -6,9 +6,10 @@ import { useGame } from "./GameContext"
 import ProgressBar from "./shared/ProgressBar"
 import Frame from "./shared/Frame"
 import StatusBar from "./shared/StatusBar"
+import type { Screen } from "./screens"
 
 interface RoundRevealProps {
-  onNavigate: (screen: string) => void
+  onNavigate: (screen: Screen) => void
 }
 
 export default function RoundReveal({ onNavigate }: RoundRevealProps) {

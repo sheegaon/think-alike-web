@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import { GameProvider } from "./GameContext"
 import Login from "./Login"
 import Home from "./Home"
 import Lobby from "./Lobby"
@@ -11,18 +12,7 @@ import Spectator from "./Spectator"
 import Leaderboard from "./Leaderboard"
 import Rewards from "./Rewards"
 import Settings from "./Settings"
-
-type Screen =
-  | "Login"
-  | "Home"
-  | "Lobby"
-  | "Room"
-  | "RoundSelect"
-  | "RoundReveal"
-  | "Spectator"
-  | "Leaderboard"
-  | "Rewards"
-  | "Settings"
+import type { Screen } from "./screens"
 
 export default function App() {
   const [currentScreen, setCurrentScreen] = useState<Screen>("Login")
@@ -34,7 +24,7 @@ export default function App() {
   const renderScreen = () => {
     switch (currentScreen) {
       case "Login":
-        return <Login onContinue={() => go("Home")} />
+        return <Login onContinueAction={() => go("Home")} />
       case "Home":
         return <Home onNavigate={go} />
       case "Lobby":
@@ -54,9 +44,13 @@ export default function App() {
       case "Settings":
         return <Settings onNavigate={go} />
       default:
-        return <Login onContinue={() => go("Home")} />
+        return <Login onContinueAction={() => go("Home")} />
     }
   }
 
-  return <div className="min-h-screen bg-background">{renderScreen()}</div>
+  return (
+    <GameProvider>
+      <div className="min-h-screen bg-background">{renderScreen()}</div>
+    </GameProvider>
+  )
 }

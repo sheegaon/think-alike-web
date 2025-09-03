@@ -12,10 +12,10 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Think Alike",
   description: "Are you in sync?",
-  generator: "v0.app",
   icons: {
-    icon: "/favicon.ico",
+    icon: "/brain-lightning.svg",
   },
+    generator: 'v0.app'
 }
 
 export default function RootLayout({

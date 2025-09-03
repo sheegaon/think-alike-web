@@ -6,9 +6,10 @@ import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
 import { useEffect } from "react"
+import type { Screen } from "./screens"
 
 interface RoomProps {
-  onNavigate: (screen: string) => void
+  onNavigate: (screen: Screen) => void
 }
 
 export default function Room({ onNavigate }: RoomProps) {
