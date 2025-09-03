@@ -8,9 +8,10 @@ import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
 import { Icons } from "./shared/icons"
+import type { Screen } from "./screens"
 
 interface LobbyProps {
-  onNavigate: (screen: string) => void
+  onNavigate: (screen: Screen) => void
 }
 
 export default function Lobby({ onNavigate }: LobbyProps) {

@@ -7,10 +7,10 @@ import Frame from "./shared/Frame"
 import { useGame } from "./GameContext"
 
 interface LoginProps {
-  onContinue: () => void
+  onContinueAction: () => void
 }
 
-export default function Login({ onContinue }: LoginProps) {
+export default function Login({ onContinueAction }: LoginProps) {
   const [username, setUsername] = useState("")
   const game = useGame()
 
@@ -19,7 +19,7 @@ export default function Login({ onContinue }: LoginProps) {
     
     try {
       await game.register(username.trim())
-      onContinue()
+      onContinueAction()
     } catch (error) {
       // Error is handled by GameContext and shown via game.error
       console.error("Failed to register:", error)
@@ -57,7 +57,7 @@ export default function Login({ onContinue }: LoginProps) {
               value={username} 
               onChange={(e) => setUsername(e.target.value)}
               disabled={game.isLoading}
-              onKeyPress={(e) => e.key === 'Enter' && handleContinueAsGuest()}
+              onKeyDown={(e) => e.key === 'Enter' && handleContinueAsGuest()}
             />
             {game.error && (
               <div className="text-sm text-red-500 text-center">

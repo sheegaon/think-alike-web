@@ -1,0 +1,11 @@
+export type Screen =
+  | "Login"
+  | "Home"
+  | "Lobby"
+  | "Room"
+  | "RoundSelect"
+  | "RoundReveal"
+  | "Spectator"
+  | "Leaderboard"
+  | "Rewards"
+  | "Settings"

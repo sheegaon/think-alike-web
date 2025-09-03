@@ -48,6 +48,14 @@ export async function call<T = any>(
 
   if (!response.ok) {
     const errorText = await response.text()
+    try {
+      const errorJson = JSON.parse(errorText)
+      if (errorJson.detail) {
+        throw new Error(errorJson.detail)
+      }
+    } catch (e) {
+      // Not a JSON response or no "detail" field
+    }
     throw new Error(`${response.status}: ${errorText}`)
   }
 
@@ -136,11 +144,13 @@ export async function getPlayerByUsername(username: string): Promise<PlayerRespo
  */
 export async function createOrGetPlayer(username: string): Promise<PlayerResponse> {
   try {
-    return await createPlayer(username)
+    return await getPlayerByUsername(username)
   } catch (error: any) {
-    if (error.message.includes("username") && error.message.includes("taken")) {
-      return await getPlayerByUsername(username)
+    // If player is not found (404), create a new one
+    if (error.message.includes("Not Found")) {
+      return await createPlayer(username)
     }
+    // Re-throw other errors
     throw error
   }
 }

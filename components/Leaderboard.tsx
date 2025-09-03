@@ -5,9 +5,10 @@ import StatusBar from "./shared/StatusBar"
 import { useGame } from "./GameContext"
 import { useEffect } from "react"
 import { Icons } from "./shared/icons"
+import type { Screen } from "./screens"
 
 interface LeaderboardProps {
-  onNavigate: (screen: string) => void
+  onNavigate: (screen: Screen) => void
 }
 
 export default function Leaderboard({ onNavigate }: LeaderboardProps) {
