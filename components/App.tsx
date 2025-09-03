@@ -1,7 +1,6 @@
 "use client"
 
-import { useState } from "react"
-import { GameProvider } from "./GameContext"
+import { useGame } from "./GameContext"
 import Login from "./Login"
 import Home from "./Home"
 import Lobby from "./Lobby"
@@ -12,45 +11,43 @@ import Spectator from "./Spectator"
 import Leaderboard from "./Leaderboard"
 import Rewards from "./Rewards"
 import Settings from "./Settings"
-import type { Screen } from "./screens"
+
+/**
+ * A component that determines which screen to render based on the game state.
+ * This replaces the local `currentScreen` state and `onNavigate` props.
+ */
+const RenderScreen = () => {
+  const game = useGame()
+
+  if (!game.playerId) {
+    return <Login />
+  }
+
+  if (!game.inRoom) {
+    // When not in a room, we can assume we are on the Home screen.
+    // The Home screen itself can handle navigation to Lobby, Leaderboard, etc.
+    return <Home />
+  }
+
+  // When in a room, the game phase determines the screen.
+  switch (game.gamePhase) {
+    case "WAITING":
+      return <Room />
+    case "SELECT":
+      return <RoundSelect />
+    case "REVEAL":
+    case "RESULTS":
+      return <RoundReveal />
+    default:
+      // Fallback to the Room view if the state is unexpected.
+      return <Room />
+  }
+}
 
 export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>("Login")
-
-  const go = (screen: Screen) => {
-    setCurrentScreen(screen)
-  }
-
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case "Login":
-        return <Login onContinueAction={() => go("Home")} />
-      case "Home":
-        return <Home onNavigate={go} />
-      case "Lobby":
-        return <Lobby onNavigate={go} />
-      case "Room":
-        return <Room onNavigate={go} />
-      case "RoundSelect":
-        return <RoundSelect onNavigate={go} />
-      case "RoundReveal":
-        return <RoundReveal onNavigate={go} />
-      case "Spectator":
-        return <Spectator onNavigate={go} />
-      case "Leaderboard":
-        return <Leaderboard onNavigate={go} />
-      case "Rewards":
-        return <Rewards onNavigate={go} />
-      case "Settings":
-        return <Settings onNavigate={go} />
-      default:
-        return <Login onContinueAction={() => go("Home")} />
-    }
-  }
-
   return (
-    <GameProvider>
-      <div className="min-h-screen bg-background">{renderScreen()}</div>
-    </GameProvider>
+    <div className="min-h-screen bg-background">
+      <RenderScreen />
+    </div>
   )
 }

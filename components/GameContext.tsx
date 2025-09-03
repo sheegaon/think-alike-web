@@ -1,488 +1,279 @@
 "use client"
 
-import { createContext, useContext, useState, useRef, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useRef, useEffect, type ReactNode, useCallback } from "react"
 import * as rest from "../lib/rest"
-import { createGameSocket, type GameSocket, type DealEvent, type RoundResultsEvent, type NextRoundInfoEvent } from "../lib/socket"
+import { createGameSocket, type GameSocket, type DealEvent, type RoundResultsEvent, generateCommitHash } from "../lib/socket"
+
+// --- TYPE DEFINITIONS ---
+
+interface Player {
+  username: string
+  isSpectator: boolean
+}
 
 interface GameSettings {
-  showTimers: boolean
   sound: boolean
   haptics: boolean
   quickAdvance: boolean
-  dataSaver: boolean
-  allowSpectators: boolean
 }
 
+export type GamePhase = "WAITING" | "SELECT" | "REVEAL" | "RESULTS" | null
+
 interface GameState {
-  // Existing UI state (preserved for compatibility)
-  stake: number
-  capacity: number
-  players: number
-  spectators: number
-  lastChoice: string | null
-  lastStake: number | null
-  settings: GameSettings
-  skipNext: boolean
-  leaveAtEnd: boolean
-  prizePool: number
-  entryFee: number
-  username: string
-  userTokens: number
-  inRoom: boolean
-  collectedRewards: string[]
-  
-  // Backend-specific state
+  // Player State
   playerId: number | null
+  username: string
   balance: number
-  roomToken: string | null
+  isPlayerJoined: boolean
+
+  // Room & Game State
+  inRoom: boolean
   roomKey: string | null
+  gamePhase: GamePhase
+  players: Player[]
+  spectators: number
   tier: string | null
-  gameState: string | null
+  stake: number
+  lastStake: number | null
+  lastTier: string | null
+
+  // Round-specific State
+  round: DealEvent | null
+  results: RoundResultsEvent | null
+  lastChoice: { choice: number; nonce: string } | null
+
+  // UI & System State
+  settings: GameSettings
   isConnected: boolean
   isLoading: boolean
   error: string | null
 }
 
 interface GameContextType extends GameState {
-  // Existing UI actions (preserved for compatibility)
-  setStake: (stake: number) => void
-  setPlayers: (players: number) => void
-  setLastChoice: (choice: string) => void
-  setLastStake: (stake: number) => void
-  updateSettings: (settings: Partial<GameSettings>) => void
-  setSkipNext: (skip: boolean) => void
-  setLeaveAtEnd: (leave: boolean) => void
-  setUsername: (username: string) => void
-  setUserTokens: (tokens: number) => void
-  setInRoom: (inRoom: boolean) => void
-  collectReward: (rewardId: string, tokenAmount: number) => void
-  logout: () => void
-  
-  // Backend actions
+  // Actions
   register: (username: string) => Promise<void>
-  healthCheck: () => Promise<void>
-  quickJoin: (tier?: string, asSpectator?: boolean) => Promise<void>
-  leaveRoom: (atRoundEnd?: boolean) => Promise<void>
-  skipRound: () => Promise<void>
-  connectWS: () => void
-  disconnectWS: () => void
-  commit: (choice: number, nonce: string, roundKey: string) => Promise<void>
-  reveal: (choice: number, nonce: string, roundKey: string) => void
+  quickJoin: (tier: string) => Promise<void>
+  leaveRoom: () => Promise<void>
+  commitChoice: (choice: number) => Promise<void>
   sendEmote: (emote: string) => void
-  getLeaderboard: () => Promise<rest.LeaderboardResponse>
+  logout: () => void
   clearError: () => void
 }
+
+// --- INITIAL STATE ---
+
+const initialState: GameState = {
+  playerId: null,
+  username: "",
+  balance: 0,
+  isPlayerJoined: false,
+  inRoom: false,
+  roomKey: null,
+  gamePhase: null,
+  players: [],
+  spectators: 0,
+  tier: null,
+  stake: 0,
+  lastStake: null,
+  lastTier: null,
+  round: null,
+  results: null,
+  lastChoice: null,
+  settings: {
+    sound: true,
+    haptics: true,
+    quickAdvance: false,
+  },
+  isConnected: false,
+  isLoading: false,
+  error: null,
+}
+
+// --- CONTEXT ---
 
 const GameContext = createContext<GameContextType | undefined>(undefined)
 
 export function GameProvider({ children }: { children: ReactNode }) {
-  // Existing UI state (preserved for compatibility)
-  const [stake, setStakeState] = useState(50)
-  const [capacity] = useState(12)
-  const [players, setPlayersState] = useState(1)
-  const [spectators, setSpectatorsState] = useState(0)
-  const [lastChoice, setLastChoiceState] = useState<string | null>(null)
-  const [lastStake, setLastStakeState] = useState<number | null>(null)
-  const [skipNext, setSkipNextState] = useState(false)
-  const [leaveAtEnd, setLeaveAtEndState] = useState(false)
-  const [username, setUsernameState] = useState("Player")
-  const [userTokens, setUserTokensState] = useState(1000)
-  const [inRoom, setInRoomState] = useState(false)
-  const [collectedRewards, setCollectedRewards] = useState<string[]>([])
+  const [state, setState] = useState<GameState>(initialState)
+  const socketRef = useRef<GameSocket | null>(null)
+  const pendingRoomJoin = useRef<{ token: string; asSpectator: boolean } | null>(null)
 
-  const [settings, setSettingsState] = useState<GameSettings>({
-    showTimers: true,
-    sound: true,
-    haptics: true,
-    quickAdvance: false,
-    dataSaver: false,
-    allowSpectators: true,
-  })
+  const updateState = (updates: Partial<GameState>) => {
+    setState((prev) => ({ ...prev, ...updates }))
+  }
 
-  // Backend-specific state
-  const [playerId, setPlayerId] = useState<number | null>(null)
-  const [balance, setBalance] = useState(1000) // Start with default, sync from backend
-  const [roomToken, setRoomToken] = useState<string | null>(null)
-  const [roomKey, setRoomKey] = useState<string | null>(null)
-  const [tier, setTier] = useState<string | null>(null)
-  const [gameState, setGameState] = useState<string | null>(null)
-  const [isConnected, setIsConnected] = useState(false)
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  // --- WEBSOCKET EVENT HANDLERS ---
 
-  // WebSocket instance (stable reference)
-  const gameSocket = useRef<GameSocket | null>(null)
-
-  // Initialize WebSocket on mount
-  useEffect(() => {
-    if (!gameSocket.current) {
-      gameSocket.current = createGameSocket()
+  const onConnect = useCallback(() => {
+    console.log("Socket connected")
+    updateState({ isConnected: true })
+    if (state.playerId) {
+      socketRef.current?.joinPlayer(state.playerId)
     }
-    
-    return () => {
-      if (gameSocket.current) {
-        gameSocket.current.disconnect()
-      }
-    }
+  }, [state.playerId])
+
+  const onDisconnect = useCallback(() => {
+    console.log("Socket disconnected")
+    updateState({ isConnected: false, inRoom: false, gamePhase: null, roomKey: null, isPlayerJoined: false })
   }, [])
 
-  // Computed values (enhanced with backend data when available)
-  const prizePool = tier && gameState ? (balance * players) : (players * stake) // Use real data when in room
-  const entryFee = tier ? Math.round(stake * 0.02) : Math.round(stake * 0.02) // Can enhance with real entry fee from backend
+  const onPlayerJoinedGame = useCallback((data: any) => {
+    console.log("Player joined game:", data)
+    updateState({ isPlayerJoined: true, balance: data.balance })
+  }, [])
 
-  // Existing UI actions (preserved for compatibility)
-  const setStake = (newStake: number) => {
-    setStakeState(newStake)
-    setLastStakeState(newStake)
-  }
+  const onRoomJoined = useCallback((data: any) => {
+    console.log("Room joined:", data)
+    updateState({ 
+      inRoom: true, 
+      tier: data.tier, 
+      players: data.players || [], 
+      spectators: data.spectators || 0, 
+      gamePhase: data.state.toUpperCase() as GamePhase 
+    })
+  }, [])
 
-  const setPlayers = (newPlayers: number) => {
-    setPlayersState(newPlayers)
-  }
+  const onPlayerJoinedRoom = useCallback((data: { username: string, is_spectator: boolean, player_count: number }) => {
+    console.log("Player joined room:", data)
+    setState((s) => ({ ...s, players: [...s.players, { username: data.username, isSpectator: data.is_spectator }] }))
+  }, [])
 
-  const setLastChoice = (choice: string) => {
-    setLastChoiceState(choice)
-  }
+  const onPlayerLeftRoom = useCallback((data: { username: string, player_count: number }) => {
+    console.log("Player left room:", data)
+    setState((s) => ({ ...s, players: s.players.filter(p => p.username !== data.username) }))
+  }, [])
 
-  const setLastStake = (stake: number) => {
-    setLastStakeState(stake)
-  }
+  const onDeal = useCallback((data: DealEvent) => {
+    console.log("Deal received:", data)
+    updateState({ round: data, gamePhase: "SELECT", results: null })
+  }, [])
 
-  const updateSettings = (newSettings: Partial<GameSettings>) => {
-    setSettingsState((prev) => ({ ...prev, ...newSettings }))
-  }
+  const onRequestReveal = useCallback(() => {
+    console.log("Reveal requested")
+    updateState({ gamePhase: "REVEAL" })
+    if (state.lastChoice && state.round) {
+      socketRef.current?.reveal(state.lastChoice.choice, state.lastChoice.nonce, state.round.round_key)
+    }
+  }, [state.lastChoice, state.round])
 
-  const setSkipNext = (skip: boolean) => {
-    setSkipNextState(skip)
-  }
+  const onRoundResults = useCallback((data: RoundResultsEvent) => {
+    console.log("Round results:", data)
+    updateState({ results: data, balance: data.new_balance, gamePhase: "RESULTS" })
+  }, [])
 
-  const setLeaveAtEnd = (leave: boolean) => {
-    setLeaveAtEndState(leave)
-  }
+  const onNextRoundInfo = useCallback((data: any) => {
+    console.log("Next round info:", data)
+    updateState({ gamePhase: "WAITING", round: null, results: null })
+  }, [])
 
-  const setUsername = (newUsername: string) => {
-    setUsernameState(newUsername)
-  }
+  const onError = useCallback((data: any) => {
+    console.error("WebSocket error:", data)
+    updateState({ error: data.message || "An unknown WebSocket error occurred" })
+  }, [])
 
-  const setUserTokens = (tokens: number) => {
-    setUserTokensState(tokens)
-    setBalance(tokens) // Sync backend balance
-  }
+  // Effect to join room once player is authenticated on WS
+  useEffect(() => {
+    if (state.isPlayerJoined && pendingRoomJoin.current && socketRef.current) {
+      console.log("Player is joined, now joining room...")
+      socketRef.current.joinRoom(pendingRoomJoin.current.token, pendingRoomJoin.current.asSpectator)
+      pendingRoomJoin.current = null // Clear the pending join
+    }
+  }, [state.isPlayerJoined])
 
-  const setInRoom = (roomStatus: boolean) => {
-    setInRoomState(roomStatus)
-  }
+  // --- CORE ACTIONS ---
 
-  const collectReward = (rewardId: string, tokenAmount: number) => {
-    setCollectedRewards((prev) => [...prev, rewardId])
-    setUserTokensState((prev) => prev + tokenAmount)
-    setBalance((prev) => prev + tokenAmount)
-  }
-
-  // Backend actions
   const register = async (username: string) => {
-    setIsLoading(true)
-    setError(null)
+    updateState({ isLoading: true, error: null })
     try {
       const player = await rest.createOrGetPlayer(username)
-      setPlayerId(player.id)
-      setUsernameState(player.username)
-      setBalance(player.balance)
-      setUserTokensState(player.balance) // Sync UI state
+      updateState({ playerId: player.id, username: player.username, balance: player.balance })
     } catch (err: any) {
-      setError(err.message || "Failed to register player")
+      updateState({ error: err.message })
       throw err
     } finally {
-      setIsLoading(false)
+      updateState({ isLoading: false })
     }
   }
 
-  const healthCheck = async () => {
-    setIsLoading(true)
-    setError(null)
+  const quickJoin = async (tier: string) => {
+    if (!state.playerId) return updateState({ error: "Player not registered." })
+    updateState({ isLoading: true, error: null })
+
     try {
-      await rest.health()
-    } catch (err: any) {
-      setError(err.message || "Health check failed")
-      throw err
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const connectWS = () => {
-    if (gameSocket.current && !gameSocket.current.isConnected()) {
-      gameSocket.current.connect()
+      const res = await rest.quickJoinRoom(state.playerId, tier)
+      updateState({ roomKey: res.room_key, stake: res.stake, lastStake: res.stake, lastTier: res.tier })
       
-      // Set up event handlers
-      gameSocket.current.on("connect", () => {
-        setIsConnected(true)
-        setError(null)
-      })
+      pendingRoomJoin.current = { token: res.room_token, asSpectator: false }
 
-      gameSocket.current.on("disconnect", () => {
-        setIsConnected(false)
-      })
-
-      gameSocket.current.on("player_joined_game", (data: any) => {
-        console.log("Player joined game:", data)
-        setBalance(data.balance)
-        setUserTokensState(data.balance)
-      })
-
-      gameSocket.current.on("room_joined", (data: any) => {
-        console.log("Room joined:", data)
-        setInRoomState(true)
-        setTier(data.tier)
-        setPlayersState(data.player_count)
-        setSpectatorsState(data.spectators)
-        setGameState(data.state)
-      })
-
-      gameSocket.current.on("deal", (data: DealEvent) => {
-        console.log("Deal received:", data)
-        // Game screens will handle this event
-      })
-
-      gameSocket.current.on("round_results", (data: RoundResultsEvent) => {
-        console.log("Round results:", data)
-        setBalance(data.new_balance)
-        setUserTokensState(data.new_balance)
-      })
-
-      gameSocket.current.on("next_round_info", (data: NextRoundInfoEvent) => {
-        console.log("Next round info:", data)
-        setPlayersState(data.player_count)
-        setSpectatorsState(data.spectators)
-      })
-
-      gameSocket.current.on("error", (data: any) => {
-        console.error("WebSocket error:", data)
-        setError(data.message || "WebSocket error")
-      })
-
-      gameSocket.current.on("game_error", (data: any) => {
-        console.error("Game error:", data)
-        setError(data.message || "Game error")
-      })
-    }
-  }
-
-  const disconnectWS = () => {
-    if (gameSocket.current) {
-      gameSocket.current.disconnect()
-      setIsConnected(false)
-    }
-  }
-
-  const quickJoin = async (tier?: string, asSpectator: boolean = false) => {
-    if (!playerId) {
-      throw new Error("Must be registered to join room")
-    }
-    
-    setIsLoading(true)
-    setError(null)
-    try {
-      // Join room via REST API
-      const joinResponse = await rest.quickJoinRoom(playerId, tier, asSpectator)
-      setRoomToken(joinResponse.room_token)
-      setRoomKey(joinResponse.room_key)
-      setTier(joinResponse.tier)
-      setStakeState(joinResponse.stake)
-
-      // Connect WebSocket if not connected
-      if (!gameSocket.current?.isConnected()) {
-        connectWS()
+      if (!socketRef.current) {
+        console.log("Creating new socket...")
+        socketRef.current = createGameSocket()
+        socketRef.current.on("connect", onConnect)
+        socketRef.current.on("disconnect", onDisconnect)
+        socketRef.current.on("player_joined_game", onPlayerJoinedGame)
+        socketRef.current.on("room_joined", onRoomJoined)
+        socketRef.current.on("player_joined_room", onPlayerJoinedRoom)
+        socketRef.current.on("player_left_room", onPlayerLeftRoom)
+        socketRef.current.on("deal", onDeal)
+        socketRef.current.on("request_reveal", onRequestReveal)
+        socketRef.current.on("round_results", onRoundResults)
+        socketRef.current.on("next_round_info", onNextRoundInfo)
+        socketRef.current.on("error", onError)
+        socketRef.current.on("game_error", onError)
       }
-
-      // Wait for connection then authenticate
-      if (gameSocket.current?.isConnected()) {
-        gameSocket.current.joinPlayer(playerId)
-        gameSocket.current.joinRoom(joinResponse.room_token, asSpectator)
-      }
-    } catch (err: any) {
-      setError(err.message || "Failed to join room")
-      throw err
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const leaveRoom = async (atRoundEnd: boolean = true) => {
-    if (!playerId || !roomKey) {
-      return
-    }
-
-    setIsLoading(true)
-    setError(null)
-    try {
-      await rest.leaveRoom(roomKey, playerId, atRoundEnd)
       
-      // Leave via WebSocket
-      if (gameSocket.current?.isConnected()) {
-        gameSocket.current.leaveRoom()
+      if (socketRef.current.isConnected()) {
+        console.log("Socket already connected. Emitting join_player...")
+        socketRef.current.joinPlayer(state.playerId)
+      } else {
+        console.log("Connecting socket...")
+        socketRef.current.connect()
       }
 
-      // Reset room state
-      setRoomToken(null)
-      setRoomKey(null)
-      setTier(null)
-      setGameState(null)
-      setInRoomState(false)
     } catch (err: any) {
-      setError(err.message || "Failed to leave room")
-      throw err
+      updateState({ error: err.message })
     } finally {
-      setIsLoading(false)
+      updateState({ isLoading: false })
     }
   }
 
-  const skipRound = async () => {
-    if (!playerId || !roomKey) {
-      throw new Error("Must be in room to skip round")
-    }
-
-    setIsLoading(true)
-    setError(null)
-    try {
-      await rest.skipNext(roomKey, playerId)
-      setSkipNextState(true)
-    } catch (err: any) {
-      setError(err.message || "Failed to skip round")
-      throw err
-    } finally {
-      setIsLoading(false)
-    }
+  const leaveRoom = async () => {
+    if (!socketRef.current || !state.roomKey) return
+    await rest.leaveRoom(state.roomKey, state.playerId!)
+    socketRef.current.leaveRoom()
+    updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null })
   }
 
-  const commit = async (choice: number, nonce: string, roundKey: string) => {
-    if (!gameSocket.current?.isConnected() || !playerId) {
-      throw new Error("Not connected to game")
-    }
-
-    try {
-      const { generateCommitHash } = await import("../lib/socket")
-      const hash = await generateCommitHash(playerId, roundKey, choice, nonce)
-      gameSocket.current.commit(hash)
-    } catch (err: any) {
-      setError(err.message || "Failed to commit choice")
-      throw err
-    }
-  }
-
-  const reveal = (choice: number, nonce: string, roundKey: string) => {
-    if (!gameSocket.current?.isConnected()) {
-      throw new Error("Not connected to game")
-    }
-    gameSocket.current.reveal(choice, nonce, roundKey)
+  const commitChoice = async (choice: number) => {
+    if (!socketRef.current || !state.playerId || !state.round) return
+    const nonce = Math.random().toString(36).substring(7)
+    updateState({ lastChoice: { choice, nonce } })
+    const hash = await generateCommitHash(state.playerId, state.round.round_key, choice, nonce)
+    socketRef.current.commit(hash)
   }
 
   const sendEmote = (emote: string) => {
-    if (!gameSocket.current?.isConnected()) {
-      throw new Error("Not connected to game")
-    }
-    gameSocket.current.sendEmote(emote)
-  }
-
-  const getLeaderboard = async () => {
-    setIsLoading(true)
-    setError(null)
-    try {
-      return await rest.getLeaderboard(50, 0, playerId || undefined)
-    } catch (err: any) {
-      setError(err.message || "Failed to get leaderboard")
-      throw err
-    } finally {
-      setIsLoading(false)
-    }
-  }
-
-  const clearError = () => {
-    setError(null)
+    socketRef.current?.sendEmote(emote)
   }
 
   const logout = () => {
-    // Disconnect WebSocket
-    disconnectWS()
-    
-    // Reset all state
-    setPlayerId(null)
-    setBalance(1000)
-    setRoomToken(null)
-    setRoomKey(null)
-    setTier(null)
-    setGameState(null)
-    setIsConnected(false)
-    setError(null)
-    setUsernameState("Player")
-    setUserTokensState(1000)
-    setInRoomState(false)
-    setLastChoiceState(null)
-    setLastStakeState(null)
-    setCollectedRewards([])
-    setStakeState(50)
-    setPlayersState(1)
-    setSkipNextState(false)
-    setLeaveAtEndState(false)
+    socketRef.current?.disconnect()
+    socketRef.current = null
+    setState(initialState)
   }
+
+  const clearError = () => updateState({ error: null })
 
   return (
     <GameContext.Provider
       value={{
-        // Existing UI state (preserved for compatibility)
-        stake,
-        capacity,
-        players,
-        spectators,
-        lastChoice,
-        lastStake,
-        settings,
-        skipNext,
-        leaveAtEnd,
-        prizePool,
-        entryFee,
-        username,
-        userTokens,
-        inRoom,
-        collectedRewards,
-        
-        // Backend-specific state
-        playerId,
-        balance,
-        roomToken,
-        roomKey,
-        tier,
-        gameState,
-        isConnected,
-        isLoading,
-        error,
-        
-        // Existing UI actions (preserved for compatibility)
-        setStake,
-        setPlayers,
-        setLastChoice,
-        setLastStake,
-        updateSettings,
-        setSkipNext,
-        setLeaveAtEnd,
-        setUsername,
-        setUserTokens,
-        setInRoom,
-        collectReward,
-        logout,
-        
-        // Backend actions
+        ...state,
         register,
-        healthCheck,
         quickJoin,
         leaveRoom,
-        skipRound,
-        connectWS,
-        disconnectWS,
-        commit,
-        reveal,
+        commitChoice,
         sendEmote,
-        getLeaderboard,
+        logout,
         clearError,
       }}
     >

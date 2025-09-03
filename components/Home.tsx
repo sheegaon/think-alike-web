@@ -7,29 +7,26 @@ import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
 import { Icons } from "./shared/icons"
-import type { Screen } from "./screens"
-import { getRooms, type RoomResponse } from "@/lib/rest"
-
-interface HomeProps {
-  onNavigate: (screen: Screen) => void
-}
+import { getRooms } from "@/lib/rest"
 
 interface QuickJoinOption {
   name: string
   stake: number
   players: number
+  tier: string
 }
 
 // Helper function to format tier names
 const formatTierName = (tier: string) => {
+  if (!tier) return ""
   return tier
     .split("_")
     .map((word) => word.charAt(0).toUpperCase() + word.slice(1))
     .join(" ")
 }
 
-export default function Home({ onNavigate }: HomeProps) {
-  const { setStake, lastStake, setInRoom, logout } = useGame()
+export default function Home() {
+  const game = useGame()
   const [quickJoinOptions, setQuickJoinOptions] = useState<QuickJoinOption[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -39,12 +36,12 @@ export default function Home({ onNavigate }: HomeProps) {
     setError(null)
     try {
       const response = await getRooms()
-      const tiers: Record<string, { stake: number; players: number }> = {}
+      const tiers: Record<string, { stake: number; players: number; tier: string }> = {}
 
       response.rooms.forEach((room) => {
         const tierName = formatTierName(room.tier)
         if (!tiers[tierName]) {
-          tiers[tierName] = { stake: room.stake, players: 0 }
+          tiers[tierName] = { stake: room.stake, players: 0, tier: room.tier }
         }
         tiers[tierName].players += room.player_count
       })
@@ -63,19 +60,15 @@ export default function Home({ onNavigate }: HomeProps) {
   }, [])
 
   useEffect(() => {
-    setInRoom(false)
-    fetchQuickJoinData()
-  }, [setInRoom, fetchQuickJoinData])
+    void fetchQuickJoinData()
+  }, [fetchQuickJoinData])
 
-  const handleQuickJoin = (stake: number) => {
-    setStake(stake)
-    setInRoom(false)
-    onNavigate("Room")
+  const handleQuickJoin = (tier: string) => {
+    void game.quickJoin(tier)
   }
 
   const handleLogout = () => {
-    logout()
-    onNavigate("Login")
+    game.logout()
   }
 
   return (
@@ -89,24 +82,24 @@ export default function Home({ onNavigate }: HomeProps) {
         </div>
 
         <div className="grid gap-4 max-w-md mx-auto">
-          <Button size="lg" onClick={() => onNavigate("Lobby")}>
+          <Button size="lg" onClick={() => alert("Navigation to be implemented")}>
             Show All Available Rooms
           </Button>
 
-          {lastStake && (
-            <Button size="lg" variant="outline" onClick={() => handleQuickJoin(lastStake)}>
-              Quick Rejoin ({lastStake} coins)
+          {game.lastStake && game.lastTier && (
+            <Button size="lg" variant="outline" onClick={() => handleQuickJoin(game.lastTier!)}>
+              Quick Rejoin ({game.lastStake} coins)
             </Button>
           )}
 
           <div className="grid grid-cols-4 gap-2">
-            <Button variant="outline" className="bg-transparent" onClick={() => onNavigate("Leaderboard")}>
+            <Button variant="outline" className="bg-transparent" onClick={() => alert("Navigation to be implemented")}>
               <Icons.Leaderboard />
             </Button>
-            <Button variant="outline" className="bg-transparent" onClick={() => onNavigate("Rewards")}>
+            <Button variant="outline" className="bg-transparent" onClick={() => alert("Navigation to be implemented")}>
               <Icons.Rewards />
             </Button>
-            <Button variant="outline" className="bg-transparent" onClick={() => onNavigate("Settings")}>
+            <Button variant="outline" className="bg-transparent" onClick={() => alert("Navigation to be implemented")}>
               <Icons.Gear />
             </Button>
             <Button variant="outline" className="bg-transparent" onClick={handleLogout}>
@@ -131,7 +124,7 @@ export default function Home({ onNavigate }: HomeProps) {
                 <div
                   key={option.name}
                   className="flex items-center justify-between p-3 border rounded-lg cursor-pointer hover:bg-muted/50 transition-colors"
-                  onClick={() => handleQuickJoin(option.stake)}
+                  onClick={() => handleQuickJoin(option.tier)}
                 >
                   <div>
                     <div className="font-medium">{option.name}</div>

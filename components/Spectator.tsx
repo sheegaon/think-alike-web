@@ -8,28 +8,41 @@ import ProgressBar from "./shared/ProgressBar"
 import StatusBar from "./shared/StatusBar"
 import { useGame } from "./GameContext"
 import { Icons } from "./shared/icons"
-import type { Screen } from "./screens"
 
-interface SpectatorProps {
-  onNavigate: (screen: Screen) => void
-}
-
-export default function Spectator({ onNavigate }: SpectatorProps) {
-  const { setInRoom } = useGame()
+export default function Spectator() {
+  const game = useGame()
+  const [queueToPlay, setQueueToPlay] = useState(false) // This will be moved to GameContext later
+  const [timeLeft, setTimeLeft] = useState(0)
 
   useEffect(() => {
-    setInRoom(true)
-  }, [setInRoom])
+    if (game.round?.selection_deadline) {
+      const deadline = new Date(game.round.selection_deadline).getTime()
+      const updateTimer = () => {
+        const now = new Date().getTime()
+        const remaining = Math.max(0, Math.round((deadline - now) / 1000))
+        setTimeLeft(remaining)
+      }
 
-  const [queueToPlay, setQueueToPlay] = useState(false)
-  const [timeLeft] = useState(25)
-  const [playersLockedIn] = useState(6)
-  const totalPlayers = 8
+      updateTimer()
+      const timerInterval = setInterval(updateTimer, 1000)
+      return () => clearInterval(timerInterval)
+    }
+  }, [game.round?.selection_deadline])
 
-  const adjective = "Mysterious"
-  const nouns = ["Castle", "Ocean", "Cat", "Phone", "Book", "Mountain", "Clock"]
+  const handleLeave = () => {
+    void game.leaveRoom()
+  }
 
-  const progress = ((30 - timeLeft) / 30) * 100
+  if (!game.round) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p>Waiting for the round to start...</p>
+      </div>
+    )
+  }
+
+  const totalTime = game.stake === 50 ? 45 : 30 // This should ideally come from the backend
+  const progress = ((totalTime - timeLeft) / totalTime) * 100
 
   return (
     <div className="min-h-screen">
@@ -38,7 +51,7 @@ export default function Spectator({ onNavigate }: SpectatorProps) {
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">Spectating</h1>
-          <Button variant="outline" onClick={() => onNavigate("Home")}>
+          <Button variant="outline" onClick={handleLeave}>
             <Icons.Home />
           </Button>
         </div>
@@ -48,7 +61,7 @@ export default function Spectator({ onNavigate }: SpectatorProps) {
           <div className="flex items-center justify-between text-sm">
             <span>Time: {timeLeft}s</span>
             <span>
-              Players Locked In: {playersLockedIn} / {totalPlayers}
+              Players: {game.players.length}
             </span>
           </div>
           <ProgressBar progress={progress} />
@@ -56,12 +69,12 @@ export default function Spectator({ onNavigate }: SpectatorProps) {
 
         {/* Sticky adjective card */}
         <div className="bg-primary text-primary-foreground p-4 rounded-lg text-center">
-          <h2 className="text-xl font-bold">{adjective}</h2>
+          <h2 className="text-xl font-bold">{game.round.adjective}</h2>
         </div>
 
         {/* Noun cards (read-only, responsive grid) */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {nouns.map((noun) => (
+          {game.round.nouns.map((noun) => (
             <WireCard key={noun} text={noun} className="cursor-default opacity-75" />
           ))}
         </div>

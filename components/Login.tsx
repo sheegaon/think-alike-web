@@ -6,22 +6,17 @@ import { Input } from "@/components/ui/input"
 import Frame from "./shared/Frame"
 import { useGame } from "./GameContext"
 
-interface LoginProps {
-  onContinueAction: () => void
-}
-
-export default function Login({ onContinueAction }: LoginProps) {
+export default function Login() {
   const [username, setUsername] = useState("")
   const game = useGame()
 
   const handleContinueAsGuest = async () => {
     if (!username.trim()) return
-    
     try {
       await game.register(username.trim())
-      onContinueAction()
+      // Navigation is now handled automatically by App.tsx when playerId is set
     } catch (error) {
-      // Error is handled by GameContext and shown via game.error
+      // Error is already set in the context, so we just log it here
       console.error("Failed to register:", error)
     }
   }
