@@ -85,7 +85,7 @@ export default function Home({ onNavigate }: HomeProps) {
       <div className="p-4 space-y-6">
         <div className="text-center space-y-2">
           <h1 className="text-2xl font-bold">Think Alike</h1>
-          <p className="text-muted-foreground">Ready to sync with the crowd?</p>
+          <p className="text-muted-foreground">Are you in sync?</p>
         </div>
 
         <div className="grid gap-4 max-w-md mx-auto">
