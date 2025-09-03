@@ -23,3 +23,4 @@ const localConfig = {
 
 export const CONFIG = localConfig
 export type EndpointName = keyof typeof CONFIG.ENDPOINTS
+export type ConfigType = typeof CONFIG
