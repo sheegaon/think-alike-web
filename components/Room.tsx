@@ -5,82 +5,45 @@ import { useGame } from "./GameContext"
 import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
-import { useEffect } from "react"
-import type { Screen } from "./screens"
+import { Icons } from "./shared/icons"
 
-interface RoomProps {
-  onNavigate: (screen: Screen) => void
-}
+export default function Room() {
+  const game = useGame()
 
-export default function Room({ onNavigate }: RoomProps) {
-  const { players, capacity, prizePool, entryFee, setStake, setInRoom } = useGame()
-
-  useEffect(() => {
-    setInRoom(true)
-  }, [setInRoom])
-
-  const quickJoinOptions = [
-    { name: "Any", stake: 0 },
-    { name: "Casual", stake: 50 },
-    { name: "Competitive", stake: 200 },
-  ]
-
-  const rules = [
-    "Everyone is dealt the same random set of an adjective and 7 nouns.",
-    "Pick the match you think will be most popular. No chats or collusion allowed.",
-    "System will auto-pick a noun for you if the timer expires.",
-    "Scoring: 10 × (n - 1), where n is the number of players who picked the same noun.",
-    "Your share of the prize pool equals your share of points for the round.",
-  ]
-
-  const handleQuickJoin = (stake: number) => {
-    if (stake > 0) {
-      setStake(stake)
-    }
+  const handleLeaveRoom = () => {
+    game.leaveRoom()
+    // Navigation is now handled automatically by App.tsx when inRoom becomes false
   }
 
   return (
     <div className="min-h-screen">
       <StatusBar />
 
-      <div className="p-4 space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold mb-4">Waiting Room</h1>
+      <div className="p-4 space-y-6 max-w-md mx-auto">
+        <div className="text-center">
+          <h1 className="text-2xl font-bold">Waiting Room</h1>
+          <p className="text-muted-foreground">Tier: {game.tier} - Stake: {game.stake} coins</p>
         </div>
 
-        <div className="text-center text-muted-foreground">Game starts once 4 players have joined.</div>
-
-        <div className="space-y-4">
-          <SectionHeader title="Switch Rooms" />
-          <div className="flex gap-2">
-            {quickJoinOptions.map((option) => (
-              <Button key={option.name} variant="outline" size="sm" onClick={() => handleQuickJoin(option.stake)}>
-                {option.name} {option.stake > 0 && option.stake}
-              </Button>
-            ))}
-          </div>
-        </div>
+        <div className="text-center text-muted-foreground">The game will start automatically when enough players join.</div>
 
         <Frame>
-          <SectionHeader title="Rules (MVP)" />
-          <ul className="space-y-2">
-            {rules.map((rule, index) => (
-              <li key={index} className="flex items-start gap-2">
-                <span className="text-primary">•</span>
-                <span className="text-sm">{rule}</span>
-              </li>
+          <SectionHeader title={`Players (${game.players.length} / 12)`} />
+          <div className="space-y-2">
+            {game.players.map((player, index) => (
+              <div key={index} className="flex items-center gap-2 p-2 border rounded-lg">
+                <Icons.Username />
+                <span>{player.username}</span>
+                {player.isSpectator && <span className="text-xs text-muted-foreground">(Spectator)</span>}
+              </div>
             ))}
-          </ul>
+          </div>
         </Frame>
 
-        <div className="flex items-center justify-between pt-4 border-t">
-          <div className="text-sm text-muted-foreground">Entry fee: {entryFee}</div>
-          <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onNavigate("Lobby")}>
-              Lobby
-            </Button>
-            <Button onClick={() => onNavigate("RoundSelect")}>Start Round</Button>
-          </div>
+        <div className="flex items-center justify-center pt-4">
+          <Button variant="outline" onClick={handleLeaveRoom}>
+            Leave Room
+          </Button>
         </div>
       </div>
     </div>
