@@ -1,8 +1,8 @@
 "use client"
 
 import { createContext, useContext, useState, useRef, useEffect, type ReactNode, useCallback } from "react"
-import * as rest from "../lib/rest"
-import { createGameSocket, type GameSocket, type DealEvent, type RoundResultsEvent, generateCommitHash } from "../lib/socket"
+import * as rest from "@/lib/rest"
+import { createGameSocket, type GameSocket, type DealEvent, type RoundResultsEvent, generateCommitHash } from "@/lib/socket"
 
 // --- TYPE DEFINITIONS ---
 
@@ -18,6 +18,7 @@ interface GameSettings {
 }
 
 export type GamePhase = "WAITING" | "SELECT" | "REVEAL" | "RESULTS" | null
+export type EndOfRoundAction = "continue" | "sit_out" | "leave"
 
 interface GameState {
   // Player State
@@ -42,6 +43,7 @@ interface GameState {
   results: RoundResultsEvent | null
   lastChoice: { choice: number; nonce: string } | null
   commitsCount: number
+  endOfRoundAction: EndOfRoundAction
 
   // UI & System State
   settings: GameSettings
@@ -56,6 +58,7 @@ interface GameContextType extends GameState {
   quickJoin: (tier: string) => Promise<void>
   leaveRoom: () => Promise<void>
   commitChoice: (choice: number) => Promise<void>
+  setEndOfRoundAction: (action: EndOfRoundAction) => void
   sendEmote: (emote: string) => void
   logout: () => void
   clearError: () => void
@@ -81,6 +84,7 @@ const initialState: GameState = {
   results: null,
   lastChoice: null,
   commitsCount: 0,
+  endOfRoundAction: "continue",
   settings: {
     sound: true,
     haptics: true,
@@ -174,8 +178,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const onNextRoundInfo = useCallback((data: any) => {
     console.log("Next round info:", data)
-    updateState({ gamePhase: "WAITING", round: null, results: null })
-  }, [])
+    if (state.endOfRoundAction === "leave") {
+      void leaveRoom()
+    } else if (state.endOfRoundAction === "sit_out") {
+      // TODO: Implement sit out logic
+      updateState({ gamePhase: "WAITING", round: null, results: null })
+    } else {
+      updateState({ gamePhase: "WAITING", round: null, results: null })
+    }
+  }, [state.endOfRoundAction])
 
   const onError = useCallback((data: any) => {
     console.error("WebSocket error:", data)
@@ -264,6 +275,10 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socketRef.current.commit(hash)
   }
 
+  const setEndOfRoundAction = (action: EndOfRoundAction) => {
+    updateState({ endOfRoundAction: action })
+  }
+
   const sendEmote = (emote: string) => {
     socketRef.current?.sendEmote(emote)
   }
@@ -284,6 +299,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         quickJoin,
         leaveRoom,
         commitChoice,
+        setEndOfRoundAction,
         sendEmote,
         logout,
         clearError,

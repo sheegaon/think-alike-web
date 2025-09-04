@@ -1,38 +1,17 @@
 // Socket.IO client for Think Alike web frontend
 // Provides WebSocket connection management and game event handling
 
-import { io, Socket } from "socket.io-client"
+import { io, type Socket } from "socket.io-client"
 import { CONFIG } from "./config"
 
-export interface GameSocket {
-  socket: Socket | null
-  connect: () => void
-  disconnect: () => void
-  isConnected: () => boolean
-  joinPlayer: (playerId: number) => void
-  joinRoom: (roomToken: string, asSpectator?: boolean) => void
-  leaveRoom: () => void
-  commit: (hash: string) => void
-  reveal: (choice: number, nonce: string, roundKey: string) => void
-  sendEmote: (emote: string) => void
-  spectatorQueue: (wantToJoin: boolean) => void
-  on: (event: string, handler: (...args: any[]) => void) => void
-  off: (event: string, handler?: (...args: any[]) => void) => void
-}
+// --- Event Payload Interfaces ---
 
-// Game event interfaces based on WebSocket API docs
 export interface DealEvent {
-  event: "deal"
   round_key: string
   adjective: string
   nouns: string[]
   selection_deadline: string
   pot: number
-}
-
-export interface RequestRevealEvent {
-  round_key: string
-  reveal_deadline: string
 }
 
 export interface RoundResultsEvent {
@@ -46,65 +25,25 @@ export interface RoundResultsEvent {
   new_balance: number
 }
 
-export interface NextRoundInfoEvent {
-  start_time: string
-  player_count: number
-  spectators: number
-  pot: number
-}
+// --- GameSocket Abstraction ---
 
-export interface PlayerJoinedGameEvent {
-  player_id: number
-  username: string
-  balance: number
-}
-
-export interface RoomJoinedEvent {
-  room_key_last_5: string
-  err_code: number
-  tier: string
-  player_count: number
-  spectators: number
-  state: string
-  pot: number
-  capacity: number
-}
-
-export interface PlayerJoinedRoomEvent {
-  username: string
-  is_spectator: boolean
-  player_count: number
-}
-
-export interface PlayerLeftRoomEvent {
-  username: string
-  player_count: number
-}
-
-export interface CommitsUpdateEvent {
-  commits_count: number
-  total_players: number
-}
-
-export interface PlayerEmoteEvent {
-  emote: string
-  username: string
-  timestamp: number
-}
-
-export interface QueueUpdateEvent {
-  position: number
-  total_waiting: number
-}
-
-export interface ErrorEvent {
-  message: string
-  method?: string
+// Defines the shape of the public interface for our socket wrapper
+export interface GameSocket {
+  connect: () => void
+  disconnect: () => void
+  isConnected: () => boolean
+  on: (event: string, handler: (...args: any[]) => void) => void
+  joinPlayer: (playerId: number) => void
+  joinRoom: (roomToken: string, asSpectator?: boolean) => void
+  leaveRoom: () => void
+  commit: (hash: string) => void
+  reveal: (choice: number, nonce: string, roundKey: string) => void
+  sendEmote: (emote: string) => void
 }
 
 /**
- * Create a new game socket instance
- * @returns GameSocket instance
+ * Creates and configures a Socket.IO client for the game.
+ * This function encapsulates the socket instance and exposes a clean API.
  */
 export function createGameSocket(): GameSocket {
   let socket: Socket | null = null
@@ -112,123 +51,55 @@ export function createGameSocket(): GameSocket {
   const connect = () => {
     if (socket?.connected) return
 
+    // Use the URL from the centralized config
     socket = io(CONFIG.WS_URL, {
-      path: "/socket.io/",
-      transports: ["websocket", "polling"],
-      timeout: 20000,
-      forceNew: true,
+      reconnection: true,
+      transports: ["websocket"],
     })
 
-    // Connection event logging
-    socket.on("connect", () => {
-      console.log("WebSocket connected to", CONFIG.WS_URL)
-    })
-
-    socket.on("disconnect", (reason) => {
-      console.log("WebSocket disconnected:", reason)
-    })
-
-    socket.on("connect_error", (error) => {
-      console.error("WebSocket connection error:", error)
-    })
+    socket.on("connect", () => console.log("WebSocket connected."))
+    socket.on("disconnect", (reason: string) => console.log("WebSocket disconnected:", reason))
+    socket.on("connect_error", (err: Error) => console.error("WebSocket connection error:", err))
   }
 
   const disconnect = () => {
-    if (socket) {
-      socket.disconnect()
-      socket = null
-    }
+    socket?.disconnect()
+    socket = null
   }
 
-  const isConnected = () => {
-    return socket?.connected ?? false
-  }
-
-  const joinPlayer = (playerId: number) => {
-    if (!socket?.connected) {
-      throw new Error("Socket not connected")
-    }
-    socket.emit("join_player", { player_id: playerId })
-  }
-
-  const joinRoom = (roomToken: string, asSpectator: boolean = false) => {
-    if (!socket?.connected) {
-      throw new Error("Socket not connected")
-    }
-    socket.emit("join_room", { room_token: roomToken, as_spectator: asSpectator })
-  }
-
-  const leaveRoom = () => {
-    if (!socket?.connected) {
-      throw new Error("Socket not connected")
-    }
-    socket.emit("leave_room", {})
-  }
-
-  const commit = (hash: string) => {
-    if (!socket?.connected) {
-      throw new Error("Socket not connected")
-    }
-    socket.emit("commit", { hash })
-  }
-
-  const reveal = (choice: number, nonce: string, roundKey: string) => {
-    if (!socket?.connected) {
-      throw new Error("Socket not connected")
-    }
-    socket.emit("reveal", { choice, nonce, round_key: roundKey })
-  }
-
-  const sendEmote = (emote: string) => {
-    if (!socket?.connected) {
-      throw new Error("Socket not connected")
-    }
-    socket.emit("send_emote", { emote })
-  }
-
-  const spectatorQueue = (wantToJoin: boolean) => {
-    if (!socket?.connected) {
-      throw new Error("Socket not connected")
-    }
-    socket.emit("spectator_queue", { want_to_join: wantToJoin })
-  }
+  const isConnected = () => socket?.connected ?? false
 
   const on = (event: string, handler: (...args: any[]) => void) => {
-    if (!socket) {
-      throw new Error("Socket not initialized")
-    }
-    socket.on(event, handler)
+    socket?.on(event, handler)
   }
 
-  const off = (event: string, handler?: (...args: any[]) => void) => {
-    if (!socket) {
-      throw new Error("Socket not initialized")
+  const emit = (event: string, data?: object) => {
+    if (!isConnected()) {
+      console.error(`Socket not connected. Cannot emit event: ${event}`)
+      return
     }
-    if (handler) {
-      socket.off(event, handler)
-    } else {
-      socket.off(event)
-    }
+    socket?.emit(event, data)
   }
 
   return {
-    socket,
     connect,
     disconnect,
     isConnected,
-    joinPlayer,
-    joinRoom,
-    leaveRoom,
-    commit,
-    reveal,
-    sendEmote,
-    spectatorQueue,
     on,
-    off,
+    joinPlayer: (playerId) => emit("join_player", { player_id: playerId }),
+    joinRoom: (roomToken, asSpectator = false) => emit("join_room", { room_token: roomToken, as_spectator: asSpectator }),
+    leaveRoom: () => emit("leave_room", {}),
+    commit: (hash) => emit("commit", { hash }),
+    reveal: (choice, nonce, roundKey) => emit("reveal", { choice, nonce, round_key: roundKey }),
+    sendEmote: (emote) => emit("send_emote", { emote }),
   }
 }
 
-// Utility function to generate commit hash (SHA256)
+// --- Cryptographic Utilities ---
+
+/**
+ * Generates a SHA256 hash for the commit-reveal protocol.
+ */
 export async function generateCommitHash(
   playerId: number,
   roundKey: string,
@@ -240,12 +111,5 @@ export async function generateCommitHash(
   const data = encoder.encode(payload)
   const hashBuffer = await crypto.subtle.digest("SHA-256", data)
   const hashArray = Array.from(new Uint8Array(hashBuffer))
-  return hashArray.map(b => b.toString(16).padStart(2, "0")).join("")
-}
-
-// Utility function to generate random nonce
-export function generateNonce(): string {
-  const array = new Uint8Array(16)
-  crypto.getRandomValues(array)
-  return Array.from(array, byte => byte.toString(16).padStart(2, "0")).join("")
+  return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("")
 }

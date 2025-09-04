@@ -1,10 +1,13 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useGame } from "./GameContext"
+import { useGame, type EndOfRoundAction } from "./GameContext"
 import WireCard from "./shared/WireCard"
 import ProgressBar from "./shared/ProgressBar"
 import StatusBar from "./shared/StatusBar"
+import Frame from "./shared/Frame"
+import SectionHeader from "./shared/SectionHeader"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 export default function RoundSelect() {
   const game = useGame()
@@ -74,9 +77,25 @@ export default function RoundSelect() {
           ))}
         </div>
 
-        <div className="text-center text-sm text-muted-foreground">
-          {game.lastChoice === null ? 'Select the noun you think is most popular.' : 'Your choice is locked in. Waiting for other players...'}
-        </div>
+        <Frame>
+          <SectionHeader title="Options" />
+          <div className="space-y-2">
+            <label htmlFor="end-of-round-action" className="text-sm font-medium">When this round ends:</label>
+            <Select 
+              value={game.endOfRoundAction} 
+              onValueChange={(value) => game.setEndOfRoundAction(value as EndOfRoundAction)}
+            >
+              <SelectTrigger id="end-of-round-action">
+                <SelectValue placeholder="Choose action..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="continue">Continue to next round</SelectItem>
+                <SelectItem value="sit_out">Sit out next round</SelectItem>
+                <SelectItem value="leave">Leave after this round</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+        </Frame>
       </div>
     </div>
   )

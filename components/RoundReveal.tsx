@@ -65,6 +65,17 @@ export default function RoundReveal() {
 
   const { payout } = game.results
 
+  const getButtonText = () => {
+    switch (game.endOfRoundAction) {
+      case "leave":
+        return "Leave Room"
+      case "sit_out":
+        return "Sitting Out Next Round"
+      default:
+        return "Waiting for Next Round..."
+    }
+  }
+
   return (
     <div className="min-h-screen">
       <StatusBar />
@@ -101,11 +112,12 @@ export default function RoundReveal() {
                 </div>
               </div>
               <div className="flex justify-center gap-2 pt-4">
-                <Button variant="outline" size="sm" onClick={handleLeave}>
-                  Leave Room
-                </Button>
-                <Button size="sm" disabled>
-                  Waiting for next round...
+                <Button 
+                  size="sm" 
+                  onClick={game.endOfRoundAction === 'leave' ? handleLeave : undefined}
+                  disabled={game.endOfRoundAction !== 'leave'}
+                >
+                  {getButtonText()}
                 </Button>
               </div>
             </div>
