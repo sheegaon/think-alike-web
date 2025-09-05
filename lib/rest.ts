@@ -101,6 +101,11 @@ export interface RoomLeaveResponse {
   state: string
 }
 
+export interface RoomSkipResponse {
+  success: boolean
+  room_key: string
+}
+
 // --- API Convenience Functions ---
 
 export async function createPlayer(username: string): Promise<PlayerResponse> {
@@ -147,13 +152,17 @@ export async function leaveRoom(
   })
 }
 
+export async function skipNext(
+  room_key: string,
+  player_id: number
+): Promise<RoomSkipResponse> {
+  return call("rooms_skip", {
+    body: { room_key, player_id },
+  })
+}
+
 /*
 // Unused functions - can be re-enabled when needed
-
-export interface RoomSkipResponse {
-  success: boolean
-  room_key: string
-}
 
 export interface LeaderboardEntry {
   id: number
@@ -175,15 +184,6 @@ export interface LeaderboardResponse {
 
 export async function health() {
   return call("health")
-}
-
-export async function skipNext(
-  room_key: string,
-  player_id: number
-): Promise<RoomSkipResponse> {
-  return call("rooms_skip", {
-    body: { room_key, player_id },
-  })
 }
 
 export async function getLeaderboard(

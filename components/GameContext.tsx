@@ -59,6 +59,7 @@ interface GameContextType extends GameState {
   leaveRoom: () => Promise<void>
   commitChoice: (choice: number) => Promise<void>
   setEndOfRoundAction: (action: EndOfRoundAction) => void
+  skipRound: () => Promise<void>
   sendEmote: (emote: string) => void
   logout: () => void
   clearError: () => void
@@ -107,6 +108,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const updateState = (updates: Partial<GameState>) => {
     setState((prev) => ({ ...prev, ...updates }))
   }
+
+  const leaveRoom = useCallback(async () => {
+    if (!socketRef.current || !state.roomKey || !state.playerId) return
+    await rest.leaveRoom(state.roomKey, state.playerId)
+    socketRef.current.leaveRoom()
+    updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null })
+  }, [state.roomKey, state.playerId])
 
   // --- WEBSOCKET EVENT HANDLERS ---
 
@@ -180,13 +188,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
     console.log("Next round info:", data)
     if (state.endOfRoundAction === "leave") {
       void leaveRoom()
-    } else if (state.endOfRoundAction === "sit_out") {
-      // TODO: Implement sit out logic
-      updateState({ gamePhase: "WAITING", round: null, results: null })
     } else {
+      // For "continue" and "sit_out", the server handles the state.
+      // The frontend just transitions to the waiting phase.
       updateState({ gamePhase: "WAITING", round: null, results: null })
     }
-  }, [state.endOfRoundAction])
+  }, [state.endOfRoundAction, leaveRoom])
 
   const onError = useCallback((data: any) => {
     console.error("WebSocket error:", data)
@@ -260,11 +267,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const leaveRoom = async () => {
-    if (!socketRef.current || !state.roomKey) return
-    await rest.leaveRoom(state.roomKey, state.playerId!)
-    socketRef.current.leaveRoom()
-    updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null })
+  const skipRound = async () => {
+    if (!state.roomKey || !state.playerId) return
+    try {
+      await rest.skipNext(state.roomKey, state.playerId)
+    } catch (err: any) {
+      updateState({ error: err.message })
+    }
   }
 
   const commitChoice = async (choice: number) => {
@@ -277,6 +286,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const setEndOfRoundAction = (action: EndOfRoundAction) => {
     updateState({ endOfRoundAction: action })
+    if (action === "sit_out") {
+      void skipRound()
+    }
   }
 
   const sendEmote = (emote: string) => {
@@ -300,6 +312,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         leaveRoom,
         commitChoice,
         setEndOfRoundAction,
+        skipRound,
         sendEmote,
         logout,
         clearError,
