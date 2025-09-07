@@ -59,9 +59,15 @@ export function createGameSocket(): GameSocket {
       transports: ["websocket"],
     })
 
-    socket.on("connect", () => console.log("WebSocket connected."))
-    socket.on("disconnect", (reason: string) => console.log("WebSocket disconnected:", reason))
-    socket.on("connect_error", (err: Error) => console.error("WebSocket connection error:", err))
+    if (process.env.NODE_ENV === "development") {
+      socket.on("connect", () => console.log("[WS] << connect: WebSocket connected."))
+      socket.on("disconnect", (reason: string) =>
+        console.log("[WS] << disconnect: WebSocket disconnected:", reason)
+      )
+      socket.on("connect_error", (err: Error) =>
+        console.error("[WS] << connect_error: WebSocket connection error:", err)
+      )
+    }
   }
 
   const disconnect = () => {
@@ -72,13 +78,22 @@ export function createGameSocket(): GameSocket {
   const isConnected = () => socket?.connected ?? false
 
   const on = (event: string, handler: (...args: any[]) => void) => {
-    socket?.on(event, handler)
+    const loggingHandler = (...args: any[]) => {
+      if (process.env.NODE_ENV === "development") {
+        console.log(`[WS] << ${event}`, args.length > 0 ? args[0] : "No Data")
+      }
+      handler(...args)
+    }
+    socket?.on(event, loggingHandler)
   }
 
   const emit = (event: string, data?: object) => {
     if (!isConnected()) {
       console.error(`Socket not connected. Cannot emit event: ${event}`)
       return
+    }
+    if (process.env.NODE_ENV === "development") {
+      console.log(`[WS] >> ${event}`, data || "No Data")
     }
     socket?.emit(event, data)
   }
@@ -89,7 +104,8 @@ export function createGameSocket(): GameSocket {
     isConnected,
     on,
     joinPlayer: (playerId) => emit("join_player", { player_id: playerId }),
-    joinRoom: (roomToken, asSpectator = false) => emit("join_room", { room_token: roomToken, as_spectator: asSpectator }),
+    joinRoom: (roomToken, asSpectator = false) =>
+      emit("join_room", { room_token: roomToken, as_spectator: asSpectator }),
     leaveRoom: () => emit("leave_room", {}),
     commit: (hash) => emit("commit", { hash }),
     reveal: (choice, nonce, roundKey) => emit("reveal", { choice, nonce, round_key: roundKey }),

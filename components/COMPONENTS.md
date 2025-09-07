@@ -61,33 +61,33 @@ This file defines the `Screen` type alias. It is a union of string literals that
 
 ## Rewards.tsx
 
-The `Rewards` component displays daily and seasonal quests for the user. It is currently using mock data for quests and progress.
+The `Rewards` component fetches and displays daily and seasonal quests for the user from the backend API.
 - It shows two main sections: "Daily Quests" and "Seasonal Quests".
 - Each quest has a title, a reward amount, a progress bar, and a progress indicator (e.g., 3/5).
-- For completable quests, a "Collect" button is displayed. The collection process is currently a simulation with a delay.
-- The component hides quests that have already been collected.
+- For completable quests, a "Collect" button is displayed. This action calls the API to claim the reward and updates the player's balance in the global state.
+- The component automatically re-fetches quest data after a reward is collected to update the view.
 - It includes a navigation button to return to the `Home` screen.
 
 ## Settings.tsx
 
-The `Settings` component provides a screen for users to view and manage their game settings. It is noted that this component is only partially connected.
+The `Settings` component provides a screen for users to view and manage their game settings.
 - It displays a list of settings options, such as "Sound effects", "Haptics", and "Auto-advance".
 - The current state of each setting is read from the `GameContext`.
-- The UI includes `Switch` controls for each setting, but they are currently disabled, meaning users can view but not yet update their settings.
+- The UI includes `Switch` controls for each setting that update the global state via the `GameContext` when toggled.
 - A "Back" button allows the user to navigate back to the `Home` screen.
 
 ## Spectator.tsx
 
-The `Spectator` component is designed for users who are watching a game in progress. It provides a read-only view of the game.
+The `Spectator` component is designed for users who are watching a game in progress. It provides a read-only view of the live game state from the `GameContext`.
 - It displays the current game state, including the time remaining, the number of players who have locked in their choices, the round's adjective, and the noun options.
 - It features a "Queue to play" option, allowing spectators to join the game automatically when a slot becomes available.
-- A button is provided to navigate back to the `Home` screen.
-- The component currently uses mock data to simulate the game state.
+- A button is provided to leave the spectator view and return to the home screen.
 
 ## Leaderboard.tsx
 
-The `Leaderboard` component displays a ranked list of players. It is currently populated with mock data.
+The `Leaderboard` component displays a ranked list of players by fetching data from the backend API.
 - It shows a table with columns for Rank, Player, Rating, Tokens, and Wins.
+- It handles loading and error states while fetching the data.
 - It includes a navigation button to return to the `Home` screen.
 
 ## RoundReveal.tsx

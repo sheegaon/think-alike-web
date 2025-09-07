@@ -28,6 +28,10 @@ export async function call<T = any>(
     url += "?" + searchParams.toString()
   }
 
+  if (process.env.NODE_ENV === "development") {
+    console.log(`[REST] >> ${endpoint.method} ${url}`, { body: body || "No Body" })
+  }
+
   const response = await fetch(url, {
     method: endpoint.method as Method,
     headers: {
@@ -36,6 +40,17 @@ export async function call<T = any>(
     },
     body: body ? JSON.stringify(body) : undefined,
   })
+
+  if (process.env.NODE_ENV === "development") {
+    const clonedResponse = response.clone()
+    try {
+      const responseData = await clonedResponse.json()
+      console.log(`[REST] << ${response.status} ${url}`, responseData)
+    } catch {
+      const responseText = await clonedResponse.text()
+      console.log(`[REST] << ${response.status} ${url}`, responseText)
+    }
+  }
 
   if (!response.ok) {
     const errorText = await response.text()
