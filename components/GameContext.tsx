@@ -19,6 +19,7 @@ interface GameSettings {
 
 export type GamePhase = "WAITING" | "SELECT" | "REVEAL" | "RESULTS" | null
 export type EndOfRoundAction = "continue" | "sit_out" | "leave"
+export type AppView = "Home" | "Lobby" | "Leaderboard" | "Rewards" | "Settings"
 
 interface GameState {
   // Player State
@@ -26,6 +27,9 @@ interface GameState {
   username: string
   balance: number
   isPlayerJoined: boolean
+
+  // Navigation State
+  currentView: AppView
 
   // Room & Game State
   inRoom: boolean
@@ -54,6 +58,7 @@ interface GameState {
 
 interface GameContextType extends GameState {
   // Actions
+  setCurrentView: (view: AppView) => void
   register: (username: string) => Promise<void>
   quickJoin: (tier: string) => Promise<void>
   leaveRoom: () => Promise<void>
@@ -72,6 +77,7 @@ const initialState: GameState = {
   username: "",
   balance: 0,
   isPlayerJoined: false,
+  currentView: "Home",
   inRoom: false,
   roomKey: null,
   gamePhase: null,
@@ -113,7 +119,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!socketRef.current || !state.roomKey || !state.playerId) return
     await rest.leaveRoom(state.roomKey, state.playerId)
     socketRef.current.leaveRoom()
-    updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null })
+    updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null, currentView: "Home" })
   }, [state.roomKey, state.playerId])
 
   // --- WEBSOCKET EVENT HANDLERS ---
@@ -143,7 +149,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
       tier: data.tier, 
       players: data.players || [], 
       spectators: data.spectators || 0, 
-      gamePhase: data.state.toUpperCase() as GamePhase 
+      gamePhase: data.state.toUpperCase() as GamePhase,
+      isLoading: false
     })
   }, [])
 
@@ -189,27 +196,28 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (state.endOfRoundAction === "leave") {
       void leaveRoom()
     } else {
-      // For "continue" and "sit_out", the server handles the state.
-      // The frontend just transitions to the waiting phase.
       updateState({ gamePhase: "WAITING", round: null, results: null })
     }
   }, [state.endOfRoundAction, leaveRoom])
 
   const onError = useCallback((data: any) => {
     console.error("WebSocket error:", data)
-    updateState({ error: data.message || "An unknown WebSocket error occurred" })
+    updateState({ error: data.message || "An unknown WebSocket error occurred", isLoading: false })
   }, [])
 
-  // Effect to join room once player is authenticated on WS
   useEffect(() => {
     if (state.isPlayerJoined && pendingRoomJoin.current && socketRef.current) {
       console.log("Player is joined, now joining room...")
       socketRef.current.joinRoom(pendingRoomJoin.current.token, pendingRoomJoin.current.asSpectator)
-      pendingRoomJoin.current = null // Clear the pending join
+      pendingRoomJoin.current = null
     }
   }, [state.isPlayerJoined])
 
   // --- CORE ACTIONS ---
+
+  const setCurrentView = (view: AppView) => {
+    updateState({ currentView: view })
+  }
 
   const register = async (username: string) => {
     updateState({ isLoading: true, error: null })
@@ -225,6 +233,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
 
   const quickJoin = async (tier: string) => {
+    console.log("--- RUNNING LATEST VERSION OF quickJoin ---");
+    if (state.isLoading) return; // Prevent multiple clicks
     if (!state.playerId) return updateState({ error: "Player not registered." })
     updateState({ isLoading: true, error: null })
 
@@ -235,7 +245,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       pendingRoomJoin.current = { token: res.room_token, asSpectator: false }
 
       if (!socketRef.current) {
-        console.log("Creating new socket...")
         socketRef.current = createGameSocket()
         socketRef.current.on("connect", onConnect)
         socketRef.current.on("disconnect", onDisconnect)
@@ -253,17 +262,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
       }
       
       if (socketRef.current.isConnected()) {
-        console.log("Socket already connected. Emitting join_player...")
-        socketRef.current.joinPlayer(state.playerId)
+        if (state.isPlayerJoined) {
+          if (pendingRoomJoin.current) {
+            socketRef.current.joinRoom(pendingRoomJoin.current.token, pendingRoomJoin.current.asSpectator);
+            pendingRoomJoin.current = null;
+          }
+        } else {
+          socketRef.current.joinPlayer(state.playerId);
+        }
       } else {
-        console.log("Connecting socket...")
-        socketRef.current.connect()
+        socketRef.current.connect();
       }
 
     } catch (err: any) {
-      updateState({ error: err.message })
-    } finally {
-      updateState({ isLoading: false })
+      updateState({ error: err.message, isLoading: false })
     }
   }
 
@@ -307,6 +319,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     <GameContext.Provider
       value={{
         ...state,
+        setCurrentView,
         register,
         quickJoin,
         leaveRoom,

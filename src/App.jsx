@@ -8,7 +8,7 @@ import "./App.css"
 import Login from "./components/Login"
 import Home from "./components/Home"
 import Lobby from "./components/Lobby"
-import Room from "./components/Room"
+import Room from "./components/WaitingRoom"
 import RoundSelect from "./components/RoundSelect"
 import RoundReveal from "./components/RoundReveal"
 import Spectator from "./components/Spectator"
@@ -34,7 +34,7 @@ function App() {
         return <Home {...screenProps} />
       case "Lobby":
         return <Lobby {...screenProps} />
-      case "Room":
+      case "WaitingRoom":
         return <Room {...screenProps} />
       case "RoundSelect":
         return <RoundSelect {...screenProps} />

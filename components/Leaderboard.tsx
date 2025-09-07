@@ -2,17 +2,14 @@
 
 import { Button } from "@/components/ui/button"
 import StatusBar from "./shared/StatusBar"
-import { useGame } from "./GameContext"
-import { useEffect } from "react"
 import { Icons } from "./shared/icons"
-import type { Screen } from "./screens"
+import { useGame } from "./GameContext"
 
-interface LeaderboardProps {
-  onNavigate: (screen: Screen) => void
-}
+// Note: This component still uses mock data.
+// A future step will be to fetch this data from the backend.
 
-export default function Leaderboard({ onNavigate }: LeaderboardProps) {
-  const { setInRoom } = useGame()
+export default function Leaderboard() {
+  const game = useGame()
   const players = [
     { rank: 1, name: "SyncMaster", rating: 2450, tokens: 15420, wins: 89 },
     { rank: 2, name: "CrowdReader", rating: 2380, tokens: 12890, wins: 76 },
@@ -24,10 +21,6 @@ export default function Leaderboard({ onNavigate }: LeaderboardProps) {
     { rank: 8, name: "Predictor", rating: 1920, tokens: 6120, wins: 33 },
   ]
 
-  useEffect(() => {
-    setInRoom(false)
-  }, [setInRoom])
-
   return (
     <div className="min-h-screen">
       <StatusBar />
@@ -35,7 +28,7 @@ export default function Leaderboard({ onNavigate }: LeaderboardProps) {
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Leaderboard</h1>
-          <Button variant="outline" onClick={() => onNavigate("Home")}>
+          <Button variant="outline" onClick={() => game.setCurrentView("Home")}>
             <Icons.Home />
           </Button>
         </div>

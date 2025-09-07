@@ -6,32 +6,18 @@ import { useGame } from "./GameContext"
 import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
-import { useEffect } from "react"
-import type { Screen } from "./screens"
 
-interface SettingsProps {
-  onNavigate: (screen: Screen) => void
-}
+// Note: This component is partially connected.
+// The settings state is read from the context, but updating settings is not yet implemented.
 
-export default function Settings({ onNavigate }: SettingsProps) {
-  const { settings, updateSettings, setInRoom } = useGame()
-
-  useEffect(() => {
-    setInRoom(false)
-  }, [setInRoom])
+export default function Settings() {
+  const game = useGame()
 
   const settingsOptions = [
-    { key: "showTimers", label: "Show timers", description: "Display countdown timers during rounds" },
     { key: "sound", label: "Sound effects", description: "Play audio feedback and notifications" },
     { key: "haptics", label: "Haptics (mobile)", description: "Vibration feedback on mobile devices" },
     { key: "quickAdvance", label: "Auto-advance", description: "Automatically proceed to next screen when ready" },
-    { key: "dataSaver", label: "Data saver", description: "Reduce data usage and animations" },
-    { key: "allowSpectators", label: "Allow spectators", description: "Let others watch your games" },
   ]
-
-  const handleToggle = (key: keyof typeof settings) => {
-    updateSettings({ [key]: !settings[key] })
-  }
 
   return (
     <div className="min-h-screen">
@@ -40,7 +26,7 @@ export default function Settings({ onNavigate }: SettingsProps) {
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Settings</h1>
-          <Button variant="outline" onClick={() => onNavigate("Home")}>
+          <Button variant="outline" onClick={() => game.setCurrentView("Home")}>
             Back
           </Button>
         </div>
@@ -56,8 +42,8 @@ export default function Settings({ onNavigate }: SettingsProps) {
                   <div className="text-sm text-muted-foreground">{option.description}</div>
                 </div>
                 <Switch
-                  checked={settings[option.key as keyof typeof settings]}
-                  onCheckedChange={() => handleToggle(option.key as keyof typeof settings)}
+                  checked={game.settings[option.key as keyof typeof game.settings]}
+                  disabled // Re-enable when updateSettings is implemented
                 />
               </div>
             ))}

@@ -8,14 +8,9 @@ import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
 import { Icons } from "./shared/icons"
-import type { Screen } from "./screens"
 import { getRooms, type RoomResponse } from "@/lib/rest"
 
-interface LobbyProps {
-  onNavigate: (screen: Screen) => void
-}
-
-// Helper function to format tier names
+// Helper function to format tier names for display
 const formatTierName = (tier: string) => {
   return tier
     .split("_")
@@ -23,8 +18,8 @@ const formatTierName = (tier: string) => {
     .join(" ")
 }
 
-export default function Lobby({ onNavigate }: LobbyProps) {
-  const { setStake, setInRoom } = useGame()
+export default function Lobby() {
+  const game = useGame()
   const [allRooms, setAllRooms] = useState<RoomResponse[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +29,6 @@ export default function Lobby({ onNavigate }: LobbyProps) {
     setIsLoading(true)
     setError(null)
     try {
-      // Convert UI-friendly filter name to API-friendly tier name
       const tier = filter === "All" ? undefined : filter.toLowerCase().replace(/ /g, "_")
       const response = await getRooms(tier)
       setAllRooms(response.rooms)
@@ -46,18 +40,11 @@ export default function Lobby({ onNavigate }: LobbyProps) {
   }, [filter])
 
   useEffect(() => {
-    setInRoom(false)
-    fetchRooms()
-  }, [fetchRooms, setInRoom])
+    void fetchRooms()
+  }, [fetchRooms])
 
-  const handleJoinRoom = (stake: number) => {
-    setStake(stake)
-    setInRoom(false)
-    onNavigate("Room")
-  }
-
-  const handleSpectateRoom = () => {
-    onNavigate("Spectator")
+  const handleJoinRoom = (tier: string) => {
+    void game.quickJoin(tier)
   }
 
   return (
@@ -66,8 +53,8 @@ export default function Lobby({ onNavigate }: LobbyProps) {
 
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold">Show All Available Rooms</h1>
-          <Button variant="outline" onClick={() => onNavigate("Home")}>
+          <h1 className="text-2xl font-bold">All Available Rooms</h1>
+          <Button variant="outline" onClick={() => game.setCurrentView("Home")}>
             <Icons.Home />
           </Button>
         </div>
@@ -101,23 +88,23 @@ export default function Lobby({ onNavigate }: LobbyProps) {
             ) : allRooms.length === 0 ? (
               <div className="text-center text-muted-foreground">No rooms available.</div>
             ) : (
-              allRooms.map((room, index) => (
-                <div key={index} className="flex items-center justify-between p-3 border rounded-lg">
+              allRooms.map((room) => (
+                <div key={room.room_key} className="flex items-center justify-between p-3 border rounded-lg">
                   <div>
                     <div className="font-medium">{formatTierName(room.tier)}</div>
                     <div className="text-sm text-muted-foreground">
                       Stake: {room.stake} • Players: {room.player_count}/{room.max_players} • Entry fee:{" "}
-                      {Math.round(room.stake * 0.02)}
+                      {room.entry_fee}
                     </div>
                   </div>
                   <div className="flex gap-2">
                     {room.player_count >= room.max_players ? (
-                      <Button size="sm" variant="outline" onClick={handleSpectateRoom}>
+                      <Button size="sm" variant="outline" disabled>
                         <Icons.Eye />
                         Spectate
                       </Button>
                     ) : (
-                      <Button size="sm" onClick={() => handleJoinRoom(room.stake)}>
+                      <Button size="sm" onClick={() => handleJoinRoom(room.tier)}>
                         Join
                       </Button>
                     )}

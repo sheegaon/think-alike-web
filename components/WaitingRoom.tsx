@@ -5,24 +5,14 @@ import { useGame } from "./GameContext"
 import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
-import { useEffect } from "react"
-import type { Screen } from "./screens"
 
-interface RoomProps {
-  onNavigate: (screen: Screen) => void
-}
-
-export default function Room({ onNavigate }: RoomProps) {
-  const { players, capacity, prizePool, entryFee, setStake, setInRoom } = useGame()
-
-  useEffect(() => {
-    setInRoom(true)
-  }, [setInRoom])
+export default function WaitingRoom() {
+  const game = useGame()
 
   const quickJoinOptions = [
-    { name: "Any", stake: 0 },
-    { name: "Casual", stake: 50 },
-    { name: "Competitive", stake: 200 },
+    { name: "Any", tier: "ANY" },
+    { name: "Casual", tier: "CASUAL" },
+    { name: "Competitive", tier: "COMPETITIVE" },
   ]
 
   const rules = [
@@ -33,10 +23,8 @@ export default function Room({ onNavigate }: RoomProps) {
     "Your share of the prize pool equals your share of points for the round.",
   ]
 
-  const handleQuickJoin = (stake: number) => {
-    if (stake > 0) {
-      setStake(stake)
-    }
+  const handleQuickJoin = (tier: string) => {
+    game.quickJoin(tier)
   }
 
   return (
@@ -48,14 +36,14 @@ export default function Room({ onNavigate }: RoomProps) {
           <h1 className="text-2xl font-bold mb-4">Waiting Room</h1>
         </div>
 
-        <div className="text-center text-muted-foreground">Game starts once 4 players have joined.</div>
+        <div className="text-center text-muted-foreground">Game starts once {game.players.length} / 4 players have joined.</div>
 
         <div className="space-y-4">
           <SectionHeader title="Switch Rooms" />
           <div className="flex gap-2">
             {quickJoinOptions.map((option) => (
-              <Button key={option.name} variant="outline" size="sm" onClick={() => handleQuickJoin(option.stake)}>
-                {option.name} {option.stake > 0 && option.stake}
+              <Button key={option.name} variant="outline" size="sm" onClick={() => handleQuickJoin(option.tier)}>
+                {option.name}
               </Button>
             ))}
           </div>
@@ -74,12 +62,13 @@ export default function Room({ onNavigate }: RoomProps) {
         </Frame>
 
         <div className="flex items-center justify-between pt-4 border-t">
-          <div className="text-sm text-muted-foreground">Entry fee: {entryFee}</div>
+          <div className="text-sm text-muted-foreground">Entry fee: {game.stake}</div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => onNavigate("Lobby")}>
+            <Button variant="outline" onClick={() => game.setCurrentView("Lobby")}>
               Lobby
             </Button>
-            <Button onClick={() => onNavigate("RoundSelect")}>Start Round</Button>
+            {/* The server starts the round automatically when enough players join. */}
+            <Button disabled>Start Round</Button>
           </div>
         </div>
       </div>

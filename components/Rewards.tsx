@@ -6,19 +6,18 @@ import SectionHeader from "./shared/SectionHeader"
 import ProgressBar from "./shared/ProgressBar"
 import Pill from "./shared/Pill"
 import StatusBar from "./shared/StatusBar"
-import { useGame } from "./GameContext"
-import { useEffect, useState } from "react"
+import { useState } from "react"
 import { Icons } from "./shared/icons"
-import type { Screen } from "./screens"
+import { useGame } from "./GameContext"
 
-interface RewardsProps {
-  onNavigate: (screen: Screen) => void
-}
+// Note: This component still uses mock data.
+// A future step will be to fetch this data from the backend and implement reward collection.
 
-export default function Rewards({ onNavigate }: RewardsProps) {
-  const { setInRoom, collectedRewards, collectReward } = useGame()
+export default function Rewards() {
+  const game = useGame()
   const [collectingReward, setCollectingReward] = useState<string | null>(null)
 
+  // Mock data - will be replaced with API data
   const dailyQuests = [
     { id: "daily-play-3", title: "Play 3 rounds", reward: 150, progress: 3, goal: 3 },
     { id: "daily-win-1", title: "Win a round", reward: 200, progress: 0, goal: 1 },
@@ -31,16 +30,15 @@ export default function Rewards({ onNavigate }: RewardsProps) {
     { id: "season-tokens-5000", title: "Earn 5000 tokens", reward: 1500, progress: 2890, goal: 5000 },
   ]
 
-  useEffect(() => {
-    setInRoom(false)
-  }, [setInRoom])
+  // Mock collected rewards state
+  const [collectedRewards, setCollectedRewards] = useState<string[]>([])
 
   const handleCollectReward = async (quest: any) => {
     setCollectingReward(quest.id)
-
     // Simulate collection animation delay
     setTimeout(() => {
-      collectReward(quest.id, quest.reward)
+      alert(`Collecting reward for ${quest.title}`)
+      setCollectedRewards((prev) => [...prev, quest.id])
       setCollectingReward(null)
     }, 1000)
   }
@@ -63,7 +61,7 @@ export default function Rewards({ onNavigate }: RewardsProps) {
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Rewards</h1>
-          <Button variant="outline" onClick={() => onNavigate("Home")}>
+          <Button variant="outline" onClick={() => game.setCurrentView("Home")}>
             <Icons.Home />
           </Button>
         </div>
@@ -76,7 +74,7 @@ export default function Rewards({ onNavigate }: RewardsProps) {
             </SectionHeader>
 
             <div className="space-y-4">
-              {visibleDailyQuests.map((quest, index) => (
+              {visibleDailyQuests.map((quest) => (
                 <div key={quest.id} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{quest.title}</span>
@@ -127,7 +125,7 @@ export default function Rewards({ onNavigate }: RewardsProps) {
             </SectionHeader>
 
             <div className="space-y-4">
-              {visibleSeasonalQuests.map((quest, index) => (
+              {visibleSeasonalQuests.map((quest) => (
                 <div key={quest.id} className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-sm font-medium">{quest.title}</span>

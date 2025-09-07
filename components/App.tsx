@@ -1,56 +1,66 @@
 "use client"
 
-import { useState } from "react"
-import { GameProvider } from "./GameContext"
+import { useGame } from "./GameContext"
 import Login from "./Login"
 import Home from "./Home"
 import Lobby from "./Lobby"
-import Room from "./Room"
+import WaitingRoom from "./WaitingRoom"
 import RoundSelect from "./RoundSelect"
 import RoundReveal from "./RoundReveal"
 import Spectator from "./Spectator"
 import Leaderboard from "./Leaderboard"
 import Rewards from "./Rewards"
 import Settings from "./Settings"
-import type { Screen } from "./screens"
 
-export default function App() {
-  const [currentScreen, setCurrentScreen] = useState<Screen>("Login")
+/**
+ * A component that determines which screen to render based on the game state.
+ * This new version handles both in-game and out-of-game navigation.
+ */
+const RenderScreen = () => {
+  const game = useGame()
 
-  const go = (screen: Screen) => {
-    setCurrentScreen(screen)
+  // If the player is not logged in, always show the Login screen.
+  if (!game.playerId) {
+    return <Login onContinueAction={() => {}} />
   }
 
-  const renderScreen = () => {
-    switch (currentScreen) {
-      case "Login":
-        return <Login onContinueAction={() => go("Home")} />
-      case "Home":
-        return <Home onNavigate={go} />
-      case "Lobby":
-        return <Lobby onNavigate={go} />
-      case "Room":
-        return <Room onNavigate={go} />
-      case "RoundSelect":
-        return <RoundSelect onNavigate={go} />
-      case "RoundReveal":
-        return <RoundReveal onNavigate={go} />
-      case "Spectator":
-        return <Spectator onNavigate={go} />
-      case "Leaderboard":
-        return <Leaderboard onNavigate={go} />
-      case "Rewards":
-        return <Rewards onNavigate={go} />
-      case "Settings":
-        return <Settings onNavigate={go} />
+  // If the player is in a room, the game phase dictates the screen.
+  if (game.inRoom) {
+    switch (game.gamePhase) {
+      case "WAITING":
+        return <WaitingRoom />
+      case "SELECT":
+        return <RoundSelect />
+      case "REVEAL":
+      case "RESULTS":
+        return <RoundReveal />
+      // As a fallback, show the waiting room if the phase is null or unexpected.
       default:
-        return <Login onContinueAction={() => go("Home")} />
+        return <WaitingRoom />
     }
   }
 
+  // If the player is not in a room, the current view determines the screen.
+  switch (game.currentView) {
+    case "Home":
+      return <Home />
+    case "Lobby":
+      return <Lobby />
+    case "Leaderboard":
+      return <Leaderboard />
+    case "Rewards":
+      return <Rewards />
+    case "Settings":
+      return <Settings />
+    default:
+      return <Home />
+  }
+}
+
+export default function App() {
   return (
-    <GameProvider>
-      <div className="min-h-screen bg-background">{renderScreen()}</div>
-    </GameProvider>
+    <div className="min-h-screen bg-background">
+      <RenderScreen />
+    </div>
   )
 }
