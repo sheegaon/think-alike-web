@@ -82,14 +82,30 @@ export interface RoomListResponse {
   total: number
 }
 
+export interface RoomJoinResponse {
+  err_code: number
+  room_token: string
+  room_key: string
+  tier: string
+  stake: number
+  entry_fee: number
+  player_count: number
+  spectators: number
+  capacity: number
+  allow_spectators: boolean
+  state: string
+  new_balance: number
+}
+
 export interface RoomQuickJoinResponse {
-  failure_code: number
+  err_code: number
   room_key: string
   room_token: string
   tier: string
   stake: number
   player_count: number
   entry_fee: number
+  new_balance: number
 }
 
 export interface RoomLeaveResponse {
@@ -104,6 +120,49 @@ export interface RoomLeaveResponse {
 export interface RoomSkipResponse {
   success: boolean
   room_key: string
+}
+
+export interface LeaderboardEntry {
+  id: number
+  username: string
+  rating: number
+  balance: number
+  wins: number
+  games_played: number
+  win_rate: number
+  achievements: string[]
+  rank: number
+}
+
+export interface LeaderboardResponse {
+  leaderboard: LeaderboardEntry[]
+  total_players: number
+  current_player_rank: number | null
+}
+
+export interface Quest {
+  quest_id: string
+  name: string
+  description: string
+  reward: number
+  quest_type: string
+  progress: number
+  required: number
+  completed: boolean
+  claimable: boolean
+}
+
+export interface QuestsResponse {
+  quests: Quest[]
+  claimable_count: number
+  total_claimable_coins: number
+}
+
+export interface QuestClaimResponse {
+  success: boolean
+  reward_amount: number
+  new_balance: number
+  message: string
 }
 
 // --- API Convenience Functions ---
@@ -142,6 +201,16 @@ export async function quickJoinRoom(
   })
 }
 
+export async function joinSpecificRoom(
+  room_key: string,
+  player_id: number,
+  as_spectator: boolean
+): Promise<RoomJoinResponse> {
+  return call("rooms_join", {
+    body: { room_key, player_id, as_spectator },
+  })
+}
+
 export async function leaveRoom(
   room_key: string,
   player_id: number,
@@ -161,31 +230,6 @@ export async function skipNext(
   })
 }
 
-/*
-// Unused functions - can be re-enabled when needed
-
-export interface LeaderboardEntry {
-  id: number
-  username: string
-  rating: number
-  balance: number
-  wins: number
-  games_played: number
-  win_rate: number
-  achievements: string[]
-  rank: number
-}
-
-export interface LeaderboardResponse {
-  leaderboard: LeaderboardEntry[]
-  total_players: number
-  current_player_rank: number | null
-}
-
-export async function health() {
-  return call("health")
-}
-
 export async function getLeaderboard(
   limit: number = 50,
   offset: number = 0,
@@ -197,4 +241,26 @@ export async function getLeaderboard(
   }
   return call("leaderboard", { params })
 }
+
+export async function getPlayerQuests(player_id: number): Promise<QuestsResponse> {
+  return call("players_quests", { path: { player_id } })
+}
+
+export async function claimQuestReward(
+  player_id: number,
+  quest_id: string
+): Promise<QuestClaimResponse> {
+  return call("players_claim_reward", {
+    path: { player_id },
+    body: { quest_id, player_id },
+  })
+}
+
+/*
+// Unused functions - can be re-enabled when needed
+
+export async function health() {
+  return call("health")
+}
+
 */

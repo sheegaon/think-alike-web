@@ -43,8 +43,8 @@ export default function Lobby() {
     void fetchRooms()
   }, [fetchRooms])
 
-  const handleJoinRoom = (tier: string) => {
-    void game.quickJoin(tier)
+  const handleJoin = (roomKey: string, asSpectator: boolean) => {
+    void game.joinRoom(roomKey, asSpectator)
   }
 
   return (
@@ -99,12 +99,12 @@ export default function Lobby() {
                   </div>
                   <div className="flex gap-2">
                     {room.player_count >= room.max_players ? (
-                      <Button size="sm" variant="outline" disabled>
+                      <Button size="sm" variant="outline" onClick={() => handleJoin(room.room_key, true)}>
                         <Icons.Eye />
                         Spectate
                       </Button>
                     ) : (
-                      <Button size="sm" onClick={() => handleJoinRoom(room.tier)}>
+                      <Button size="sm" onClick={() => handleJoin(room.room_key, false)}>
                         Join
                       </Button>
                     )}

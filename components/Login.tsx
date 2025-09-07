@@ -16,7 +16,7 @@ export default function Login({ onContinueAction }: LoginProps) {
 
   const handleContinueAsGuest = async () => {
     if (!username.trim()) return
-    
+
     try {
       await game.register(username.trim())
       onContinueAction()
@@ -24,6 +24,12 @@ export default function Login({ onContinueAction }: LoginProps) {
       // Error is handled by GameContext and shown via game.error
       console.error("Failed to register:", error)
     }
+  }
+
+  // Placeholder function for social login integration
+  const handleSocialLogin = (provider: "Apple" | "Google") => {
+    console.log(`Social login with ${provider} is not yet implemented.`)
+    // In a real implementation, this would trigger the OAuth flow.
   }
 
   return (
@@ -35,10 +41,20 @@ export default function Login({ onContinueAction }: LoginProps) {
         </div>
 
         <div className="space-y-4">
-          <Button className="w-full bg-transparent" variant="outline" disabled={game.isLoading}>
+          <Button
+            className="w-full bg-transparent"
+            variant="outline"
+            onClick={() => handleSocialLogin("Apple")}
+            disabled={game.isLoading}
+          >
             Continue with Apple
           </Button>
-          <Button className="w-full bg-transparent" variant="outline" disabled={game.isLoading}>
+          <Button
+            className="w-full bg-transparent"
+            variant="outline"
+            onClick={() => handleSocialLogin("Google")}
+            disabled={game.isLoading}
+          >
             Continue with Google
           </Button>
 
@@ -52,21 +68,17 @@ export default function Login({ onContinueAction }: LoginProps) {
           </div>
 
           <div className="space-y-2">
-            <Input 
-              placeholder="Enter username" 
-              value={username} 
+            <Input
+              placeholder="Enter username"
+              value={username}
               onChange={(e) => setUsername(e.target.value)}
               disabled={game.isLoading}
-              onKeyDown={(e) => e.key === 'Enter' && handleContinueAsGuest()}
+              onKeyDown={(e) => e.key === "Enter" && handleContinueAsGuest()}
             />
-            {game.error && (
-              <div className="text-sm text-red-500 text-center">
-                {game.error}
-              </div>
-            )}
-            <Button 
-              className="w-full" 
-              onClick={handleContinueAsGuest} 
+            {game.error && <div className="text-sm text-red-500 text-center">{game.error}</div>}
+            <Button
+              className="w-full"
+              onClick={handleContinueAsGuest}
               disabled={!username.trim() || game.isLoading}
             >
               {game.isLoading ? "Creating Player..." : "Continue as Guest"}

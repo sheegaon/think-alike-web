@@ -6,53 +6,107 @@ import SectionHeader from "./shared/SectionHeader"
 import ProgressBar from "./shared/ProgressBar"
 import Pill from "./shared/Pill"
 import StatusBar from "./shared/StatusBar"
-import { useState } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { Icons } from "./shared/icons"
 import { useGame } from "./GameContext"
-
-// Note: This component still uses mock data.
-// A future step will be to fetch this data from the backend and implement reward collection.
+import { getPlayerQuests, claimQuestReward, type Quest } from "@/lib/rest"
 
 export default function Rewards() {
   const game = useGame()
+  const [quests, setQuests] = useState<Quest[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [collectingReward, setCollectingReward] = useState<string | null>(null)
 
-  // Mock data - will be replaced with API data
-  const dailyQuests = [
-    { id: "daily-play-3", title: "Play 3 rounds", reward: 150, progress: 3, goal: 3 },
-    { id: "daily-win-1", title: "Win a round", reward: 200, progress: 0, goal: 1 },
-    { id: "daily-match-5", title: "Match majority 5 times", reward: 300, progress: 3, goal: 5 },
-  ]
+  const fetchQuests = useCallback(async () => {
+    if (!game.playerId) return
+    setIsLoading(true)
+    setError(null)
+    try {
+      const response = await getPlayerQuests(game.playerId)
+      setQuests(response.quests)
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [game.playerId])
 
-  const seasonalQuests = [
-    { id: "season-play-50", title: "Play 50 rounds this season", reward: 1000, progress: 23, goal: 50 },
-    { id: "season-streak-10", title: "Reach 10 win streak", reward: 2000, progress: 4, goal: 10 },
-    { id: "season-tokens-5000", title: "Earn 5000 tokens", reward: 1500, progress: 2890, goal: 5000 },
-  ]
+  useEffect(() => {
+    void fetchQuests()
+  }, [fetchQuests])
 
-  // Mock collected rewards state
-  const [collectedRewards, setCollectedRewards] = useState<string[]>([])
-
-  const handleCollectReward = async (quest: any) => {
-    setCollectingReward(quest.id)
-    // Simulate collection animation delay
-    setTimeout(() => {
-      alert(`Collecting reward for ${quest.title}`)
-      setCollectedRewards((prev) => [...prev, quest.id])
+  const handleCollectReward = async (quest: Quest) => {
+    if (!game.playerId) return
+    setCollectingReward(quest.quest_id)
+    try {
+      const response = await claimQuestReward(game.playerId, quest.quest_id)
+      if (response.success) {
+        game.updateBalance(response.new_balance)
+        // Re-fetch quests to update the view
+        await fetchQuests()
+      }
+    } catch (err: any) {
+      setError(err.message)
+    } finally {
       setCollectingReward(null)
-    }, 1000)
+    }
   }
 
-  const isCompletable = (quest: any) => {
-    return quest.progress >= quest.goal && !collectedRewards.includes(quest.id)
-  }
+  const dailyQuests = quests.filter((q) => q.quest_type === "daily")
+  const seasonalQuests = quests.filter((q) => q.quest_type === "seasonal")
 
-  const isCollected = (quest: any) => {
-    return collectedRewards.includes(quest.id)
-  }
+  const renderQuestList = (questList: Quest[]) => {
+    if (isLoading) {
+      return <div className="text-center py-8 text-muted-foreground">Loading quests...</div>
+    }
+    if (error) {
+      return <div className="text-center py-8 text-red-500">Error: {error}</div>
+    }
+    if (questList.length === 0) {
+      return (
+        <div className="text-center py-8 text-muted-foreground">
+          <Icons.Rewards className="mx-auto mb-2 w-8 h-8 opacity-50" />
+          <p className="text-sm">No quests available right now.</p>
+        </div>
+      )
+    }
 
-  const visibleDailyQuests = dailyQuests.filter((quest) => !isCollected(quest))
-  const visibleSeasonalQuests = seasonalQuests.filter((quest) => !isCollected(quest))
+    return questList.map((quest) => (
+      <div key={quest.quest_id} className="space-y-2">
+        <div className="flex items-center justify-between">
+          <span className="text-sm font-medium">{quest.name}</span>
+          <div className="flex items-center gap-1">
+            <Icons.Rewards />
+            <span className="text-sm font-medium">{quest.reward}</span>
+          </div>
+        </div>
+        <ProgressBar progress={(quest.progress / quest.required) * 100} />
+        <div className="flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            {quest.progress}/{quest.required}
+          </div>
+          {quest.claimable && (
+            <Button
+              size="sm"
+              onClick={() => handleCollectReward(quest)}
+              disabled={collectingReward === quest.quest_id}
+              className="h-6 px-2 text-xs"
+            >
+              {collectingReward === quest.quest_id ? (
+                <div className="flex items-center gap-1">
+                  <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Collecting...
+                </div>
+              ) : (
+                "Collect"
+              )}
+            </Button>
+          )}
+        </div>
+      </div>
+    ))
+  }
 
   return (
     <div className="min-h-screen">
@@ -72,50 +126,7 @@ export default function Rewards() {
             <SectionHeader title="Daily Quests">
               <Pill label="Resets in" value="12h" />
             </SectionHeader>
-
-            <div className="space-y-4">
-              {visibleDailyQuests.map((quest) => (
-                <div key={quest.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{quest.title}</span>
-                    <div className="flex items-center gap-1">
-                      <Icons.Rewards />
-                      <span className="text-sm font-medium">{quest.reward}</span>
-                    </div>
-                  </div>
-                  <ProgressBar progress={(quest.progress / quest.goal) * 100} />
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs text-muted-foreground">
-                      {quest.progress}/{quest.goal}
-                    </div>
-                    {isCompletable(quest) && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleCollectReward(quest)}
-                        disabled={collectingReward === quest.id}
-                        className="h-6 px-2 text-xs"
-                      >
-                        {collectingReward === quest.id ? (
-                          <div className="flex items-center gap-1">
-                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Collecting...
-                          </div>
-                        ) : (
-                          "Collect"
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {visibleDailyQuests.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Icons.Rewards className="mx-auto mb-2 w-8 h-8 opacity-50" />
-                  <p className="text-sm">All daily rewards collected!</p>
-                  <p className="text-xs">New quests reset in 12h</p>
-                </div>
-              )}
-            </div>
+            <div className="space-y-4">{renderQuestList(dailyQuests)}</div>
           </Frame>
 
           {/* Seasonal Quests */}
@@ -123,50 +134,7 @@ export default function Rewards() {
             <SectionHeader title="Seasonal Quests">
               <Pill label="Ends in" value="21d" />
             </SectionHeader>
-
-            <div className="space-y-4">
-              {visibleSeasonalQuests.map((quest) => (
-                <div key={quest.id} className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <span className="text-sm font-medium">{quest.title}</span>
-                    <div className="flex items-center gap-1">
-                      <Icons.Rewards />
-                      <span className="text-sm font-medium">{quest.reward}</span>
-                    </div>
-                  </div>
-                  <ProgressBar progress={(quest.progress / quest.goal) * 100} />
-                  <div className="flex items-center justify-between">
-                    <div className="text-xs text-muted-foreground">
-                      {quest.progress}/{quest.goal}
-                    </div>
-                    {isCompletable(quest) && (
-                      <Button
-                        size="sm"
-                        onClick={() => handleCollectReward(quest)}
-                        disabled={collectingReward === quest.id}
-                        className="h-6 px-2 text-xs"
-                      >
-                        {collectingReward === quest.id ? (
-                          <div className="flex items-center gap-1">
-                            <div className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                            Collecting...
-                          </div>
-                        ) : (
-                          "Collect"
-                        )}
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))}
-              {visibleSeasonalQuests.length === 0 && (
-                <div className="text-center py-8 text-muted-foreground">
-                  <Icons.Coins className="mx-auto mb-2 w-8 h-8 opacity-50" />
-                  <p className="text-sm">All seasonal rewards collected!</p>
-                  <p className="text-xs">New season starts in 21d</p>
-                </div>
-              )}
-            </div>
+            <div className="space-y-4">{renderQuestList(seasonalQuests)}</div>
           </Frame>
         </div>
       </div>

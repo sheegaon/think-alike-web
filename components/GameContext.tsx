@@ -11,7 +11,7 @@ interface Player {
   isSpectator: boolean
 }
 
-interface GameSettings {
+export interface GameSettings {
   sound: boolean
   haptics: boolean
   quickAdvance: boolean
@@ -33,12 +33,15 @@ interface GameState {
 
   // Room & Game State
   inRoom: boolean
+  isSpectator: boolean
   roomKey: string | null
   gamePhase: GamePhase
   players: Player[]
   spectators: number
   tier: string | null
   stake: number
+  entryFee: number
+  minPlayers: number // The minimum number of players to start a game
   lastStake: number | null
   lastTier: string | null
 
@@ -54,6 +57,7 @@ interface GameState {
   isConnected: boolean
   isLoading: boolean
   error: string | null
+  queuePosition: number | null
 }
 
 interface GameContextType extends GameState {
@@ -61,11 +65,16 @@ interface GameContextType extends GameState {
   setCurrentView: (view: AppView) => void
   register: (username: string) => Promise<void>
   quickJoin: (tier: string) => Promise<void>
+  joinRoom: (roomKey: string, asSpectator: boolean) => Promise<void>
   leaveRoom: () => Promise<void>
   commitChoice: (choice: number) => Promise<void>
+  revealChoice: () => void
   setEndOfRoundAction: (action: EndOfRoundAction) => void
   skipRound: () => Promise<void>
   sendEmote: (emote: string) => void
+  toggleQueue: (wantsToJoin: boolean) => void
+  updateBalance: (newBalance: number) => void
+  updateSettings: (newSettings: Partial<GameSettings>) => void
   logout: () => void
   clearError: () => void
 }
@@ -79,12 +88,15 @@ const initialState: GameState = {
   isPlayerJoined: false,
   currentView: "Home",
   inRoom: false,
+  isSpectator: false,
   roomKey: null,
   gamePhase: null,
   players: [],
   spectators: 0,
   tier: null,
   stake: 0,
+  entryFee: 0,
+  minPlayers: 4, // Default value, should ideally come from backend room config
   lastStake: null,
   lastTier: null,
   round: null,
@@ -100,6 +112,7 @@ const initialState: GameState = {
   isConnected: false,
   isLoading: false,
   error: null,
+  queuePosition: null,
 }
 
 // --- CONTEXT ---
@@ -115,103 +128,117 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, ...updates }))
   }
 
+  const connectSocket = useCallback(() => {
+    if (socketRef.current) return
+
+    const socket = createGameSocket()
+    socketRef.current = socket
+
+    socket.on("connect", () => {
+      console.log("Socket connected")
+      updateState({ isConnected: true })
+      if (state.playerId) {
+        socket.joinPlayer(state.playerId)
+      }
+    })
+
+    socket.on("disconnect", () => {
+      console.log("Socket disconnected")
+      updateState({ isConnected: false, inRoom: false, gamePhase: null, roomKey: null, isPlayerJoined: false })
+    })
+
+    socket.on("player_joined_game", (data) => {
+      console.log("Player joined game:", data)
+      updateState({ isPlayerJoined: true, balance: data.balance })
+      if (pendingRoomJoin.current) {
+        socket.joinRoom(pendingRoomJoin.current.token, pendingRoomJoin.current.asSpectator)
+        pendingRoomJoin.current = null
+      }
+    })
+
+    socket.on("room_joined", (data) => {
+      console.log("Room joined:", data)
+      updateState({
+        inRoom: true,
+        isSpectator: pendingRoomJoin.current?.asSpectator ?? false,
+        tier: data.tier,
+        players: data.players || [],
+        spectators: data.spectators || 0,
+        gamePhase: data.state.toUpperCase() as GamePhase,
+        isLoading: false,
+        // minPlayers can be set here if provided by the backend in the future
+      })
+    })
+
+    socket.on("player_joined_room", (data) => {
+      console.log("Player joined room:", data)
+      setState((s) => ({ ...s, players: [...s.players, { username: data.username, isSpectator: data.is_spectator }] }))
+    })
+
+    socket.on("player_left_room", (data) => {
+      console.log("Player left room:", data)
+      setState((s) => ({
+        ...s,
+        players: s.players.filter((p) => p.username !== data.username),
+        gamePhase: data.player_count < s.minPlayers ? "WAITING" : s.gamePhase,
+      }))
+    })
+
+    socket.on("deal", (data) => {
+      console.log("Deal received:", data)
+      updateState({ round: data, gamePhase: "SELECT", results: null, commitsCount: 0, lastChoice: null })
+    })
+
+    socket.on("commits_update", (data) => {
+      console.log("Commits update:", data)
+      updateState({ commitsCount: data.commits_count })
+    })
+
+    socket.on("request_reveal", () => {
+      console.log("Reveal requested")
+      updateState({ gamePhase: "REVEAL" })
+    })
+
+    socket.on("round_results", (data) => {
+      console.log("Round results:", data)
+      updateState({ results: data, balance: data.new_balance, gamePhase: "RESULTS" })
+    })
+
+    socket.on("next_round_info", (data) => {
+      console.log("Next round info:", data)
+      if (state.endOfRoundAction === "leave") {
+        void leaveRoom()
+      } else {
+        updateState({ gamePhase: "WAITING", round: null, results: null })
+      }
+    })
+
+    socket.on("queue_update", (data) => {
+      console.log("Queue update:", data)
+      updateState({ queuePosition: data.position })
+    })
+
+    socket.on("error", (data) => {
+      console.error("WebSocket error:", data)
+      updateState({ error: data.message || "An unknown WebSocket error occurred", isLoading: false })
+    })
+
+    socket.on("game_error", (data) => {
+      console.error("Game error:", data)
+      updateState({ error: data.message || "An unknown game error occurred", isLoading: false })
+    })
+
+    if (!socket.isConnected()) {
+        socket.connect();
+    }
+  }, [state.playerId, state.endOfRoundAction])
+
   const leaveRoom = useCallback(async () => {
     if (!socketRef.current || !state.roomKey || !state.playerId) return
     await rest.leaveRoom(state.roomKey, state.playerId)
     socketRef.current.leaveRoom()
-    updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null, currentView: "Home" })
+    updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null, currentView: "Home", isSpectator: false })
   }, [state.roomKey, state.playerId])
-
-  // --- WEBSOCKET EVENT HANDLERS ---
-
-  const onConnect = useCallback(() => {
-    console.log("Socket connected")
-    updateState({ isConnected: true })
-    if (state.playerId) {
-      socketRef.current?.joinPlayer(state.playerId)
-    }
-  }, [state.playerId])
-
-  const onDisconnect = useCallback(() => {
-    console.log("Socket disconnected")
-    updateState({ isConnected: false, inRoom: false, gamePhase: null, roomKey: null, isPlayerJoined: false })
-  }, [])
-
-  const onPlayerJoinedGame = useCallback((data: any) => {
-    console.log("Player joined game:", data)
-    updateState({ isPlayerJoined: true, balance: data.balance })
-  }, [])
-
-  const onRoomJoined = useCallback((data: any) => {
-    console.log("Room joined:", data)
-    updateState({ 
-      inRoom: true, 
-      tier: data.tier, 
-      players: data.players || [], 
-      spectators: data.spectators || 0, 
-      gamePhase: data.state.toUpperCase() as GamePhase,
-      isLoading: false
-    })
-  }, [])
-
-  const onPlayerJoinedRoom = useCallback((data: { username: string, is_spectator: boolean, player_count: number }) => {
-    console.log("Player joined room:", data)
-    setState((s) => ({ ...s, players: [...s.players, { username: data.username, isSpectator: data.is_spectator }] }))
-  }, [])
-
-  const onPlayerLeftRoom = useCallback((data: { username: string, player_count: number }) => {
-    console.log("Player left room:", data)
-    setState((s) => ({
-      ...s,
-      players: s.players.filter(p => p.username !== data.username),
-      gamePhase: data.player_count < 4 ? "WAITING" : s.gamePhase // Go to waiting room if not enough players
-    }))
-  }, [])
-
-  const onDeal = useCallback((data: DealEvent) => {
-    console.log("Deal received:", data)
-    updateState({ round: data, gamePhase: "SELECT", results: null, commitsCount: 0, lastChoice: null })
-  }, [])
-
-  const onCommitsUpdate = useCallback((data: { commits_count: number }) => {
-    console.log("Commits update:", data)
-    updateState({ commitsCount: data.commits_count })
-  }, [])
-
-  const onRequestReveal = useCallback(() => {
-    console.log("Reveal requested")
-    updateState({ gamePhase: "REVEAL" })
-    if (state.lastChoice && state.round) {
-      socketRef.current?.reveal(state.lastChoice.choice, state.lastChoice.nonce, state.round.round_key)
-    }
-  }, [state.lastChoice, state.round])
-
-  const onRoundResults = useCallback((data: RoundResultsEvent) => {
-    console.log("Round results:", data)
-    updateState({ results: data, balance: data.new_balance, gamePhase: "RESULTS" })
-  }, [])
-
-  const onNextRoundInfo = useCallback((data: any) => {
-    console.log("Next round info:", data)
-    if (state.endOfRoundAction === "leave") {
-      void leaveRoom()
-    } else {
-      updateState({ gamePhase: "WAITING", round: null, results: null })
-    }
-  }, [state.endOfRoundAction, leaveRoom])
-
-  const onError = useCallback((data: any) => {
-    console.error("WebSocket error:", data)
-    updateState({ error: data.message || "An unknown WebSocket error occurred", isLoading: false })
-  }, [])
-
-  useEffect(() => {
-    if (state.isPlayerJoined && pendingRoomJoin.current && socketRef.current) {
-      console.log("Player is joined, now joining room...")
-      socketRef.current.joinRoom(pendingRoomJoin.current.token, pendingRoomJoin.current.asSpectator)
-      pendingRoomJoin.current = null
-    }
-  }, [state.isPlayerJoined])
 
   // --- CORE ACTIONS ---
 
@@ -232,47 +259,50 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const joinRoom = async (roomKey: string, asSpectator: boolean) => {
+    if (state.isLoading) return
+    if (!state.playerId) return updateState({ error: "Player not registered." })
+    updateState({ isLoading: true, error: null })
+
+    try {
+      const res = await rest.joinSpecificRoom(roomKey, state.playerId, asSpectator)
+      updateState({ 
+        roomKey: res.room_key, 
+        stake: res.stake, 
+        entryFee: res.entry_fee, 
+        lastStake: res.stake, 
+        lastTier: res.tier,
+        balance: res.new_balance
+      })
+      
+      pendingRoomJoin.current = { token: res.room_token, asSpectator }
+
+      connectSocket()
+
+    } catch (err: any) {
+      updateState({ error: err.message, isLoading: false })
+    }
+  }
+
   const quickJoin = async (tier: string) => {
-    console.log("--- RUNNING LATEST VERSION OF quickJoin ---");
-    if (state.isLoading) return; // Prevent multiple clicks
+    if (state.isLoading) return
     if (!state.playerId) return updateState({ error: "Player not registered." })
     updateState({ isLoading: true, error: null })
 
     try {
       const res = await rest.quickJoinRoom(state.playerId, tier)
-      updateState({ roomKey: res.room_key, stake: res.stake, lastStake: res.stake, lastTier: res.tier })
+      updateState({ 
+        roomKey: res.room_key, 
+        stake: res.stake, 
+        entryFee: res.entry_fee, 
+        lastStake: res.stake, 
+        lastTier: res.tier,
+        balance: res.new_balance
+      })
       
       pendingRoomJoin.current = { token: res.room_token, asSpectator: false }
 
-      if (!socketRef.current) {
-        socketRef.current = createGameSocket()
-        socketRef.current.on("connect", onConnect)
-        socketRef.current.on("disconnect", onDisconnect)
-        socketRef.current.on("player_joined_game", onPlayerJoinedGame)
-        socketRef.current.on("room_joined", onRoomJoined)
-        socketRef.current.on("player_joined_room", onPlayerJoinedRoom)
-        socketRef.current.on("player_left_room", onPlayerLeftRoom)
-        socketRef.current.on("deal", onDeal)
-        socketRef.current.on("commits_update", onCommitsUpdate)
-        socketRef.current.on("request_reveal", onRequestReveal)
-        socketRef.current.on("round_results", onRoundResults)
-        socketRef.current.on("next_round_info", onNextRoundInfo)
-        socketRef.current.on("error", onError)
-        socketRef.current.on("game_error", onError)
-      }
-      
-      if (socketRef.current.isConnected()) {
-        if (state.isPlayerJoined) {
-          if (pendingRoomJoin.current) {
-            socketRef.current.joinRoom(pendingRoomJoin.current.token, pendingRoomJoin.current.asSpectator);
-            pendingRoomJoin.current = null;
-          }
-        } else {
-          socketRef.current.joinPlayer(state.playerId);
-        }
-      } else {
-        socketRef.current.connect();
-      }
+      connectSocket()
 
     } catch (err: any) {
       updateState({ error: err.message, isLoading: false })
@@ -296,6 +326,15 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socketRef.current.commit(hash)
   }
 
+  const revealChoice = () => {
+    if (state.lastChoice && state.round) {
+      console.log("Revealing choice now");
+      socketRef.current?.reveal(state.lastChoice.choice, state.lastChoice.nonce, state.round.round_key)
+    } else {
+      console.error("Cannot reveal, lastChoice or round is missing");
+    }
+  }
+
   const setEndOfRoundAction = (action: EndOfRoundAction) => {
     updateState({ endOfRoundAction: action })
     if (action === "sit_out") {
@@ -305,6 +344,18 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const sendEmote = (emote: string) => {
     socketRef.current?.sendEmote(emote)
+  }
+
+  const toggleQueue = (wantsToJoin: boolean) => {
+    socketRef.current?.toggleQueue(wantsToJoin)
+  }
+
+  const updateBalance = (newBalance: number) => {
+    updateState({ balance: newBalance })
+  }
+
+  const updateSettings = (newSettings: Partial<GameSettings>) => {
+    updateState({ settings: { ...state.settings, ...newSettings } })
   }
 
   const logout = () => {
@@ -322,11 +373,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
         setCurrentView,
         register,
         quickJoin,
+        joinRoom,
         leaveRoom,
         commitChoice,
+        revealChoice,
         setEndOfRoundAction,
         skipRound,
         sendEmote,
+        toggleQueue,
+        updateBalance,
+        updateSettings,
         logout,
         clearError,
       }}

@@ -11,6 +11,7 @@ export interface DealEvent {
   adjective: string
   nouns: string[]
   selection_deadline: string
+  selection_duration: number
   pot: number
 }
 
@@ -39,6 +40,7 @@ export interface GameSocket {
   commit: (hash: string) => void
   reveal: (choice: number, nonce: string, roundKey: string) => void
   sendEmote: (emote: string) => void
+  toggleQueue: (wantsToJoin: boolean) => void
 }
 
 /**
@@ -92,6 +94,7 @@ export function createGameSocket(): GameSocket {
     commit: (hash) => emit("commit", { hash }),
     reveal: (choice, nonce, roundKey) => emit("reveal", { choice, nonce, round_key: roundKey }),
     sendEmote: (emote) => emit("send_emote", { emote }),
+    toggleQueue: (wantsToJoin) => emit("spectator_queue", { want_to_join: wantsToJoin }),
   }
 }
 

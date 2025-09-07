@@ -2,22 +2,23 @@
 
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-import { useGame } from "./GameContext"
+import { useGame, type GameSettings } from "./GameContext"
 import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
 
-// Note: This component is partially connected.
-// The settings state is read from the context, but updating settings is not yet implemented.
-
 export default function Settings() {
   const game = useGame()
 
-  const settingsOptions = [
+  const settingsOptions: { key: keyof GameSettings; label: string; description: string }[] = [
     { key: "sound", label: "Sound effects", description: "Play audio feedback and notifications" },
     { key: "haptics", label: "Haptics (mobile)", description: "Vibration feedback on mobile devices" },
     { key: "quickAdvance", label: "Auto-advance", description: "Automatically proceed to next screen when ready" },
   ]
+
+  const handleSettingChange = (key: keyof GameSettings, value: boolean) => {
+    game.updateSettings({ [key]: value })
+  }
 
   return (
     <div className="min-h-screen">
@@ -42,8 +43,8 @@ export default function Settings() {
                   <div className="text-sm text-muted-foreground">{option.description}</div>
                 </div>
                 <Switch
-                  checked={game.settings[option.key as keyof typeof game.settings]}
-                  disabled // Re-enable when updateSettings is implemented
+                  checked={game.settings[option.key]}
+                  onCheckedChange={(checked) => handleSettingChange(option.key, checked)}
                 />
               </div>
             ))}

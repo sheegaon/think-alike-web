@@ -1,25 +1,60 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import StatusBar from "./shared/StatusBar"
 import { Icons } from "./shared/icons"
 import { useGame } from "./GameContext"
-
-// Note: This component still uses mock data.
-// A future step will be to fetch this data from the backend.
+import { getLeaderboard, type LeaderboardEntry } from "@/lib/rest"
 
 export default function Leaderboard() {
   const game = useGame()
-  const players = [
-    { rank: 1, name: "SyncMaster", rating: 2450, tokens: 15420, wins: 89 },
-    { rank: 2, name: "CrowdReader", rating: 2380, tokens: 12890, wins: 76 },
-    { rank: 3, name: "ThinkTank", rating: 2290, tokens: 11250, wins: 68 },
-    { rank: 4, name: "MindMeld", rating: 2180, tokens: 9870, wins: 54 },
-    { rank: 5, name: "GroupThink", rating: 2120, tokens: 8940, wins: 47 },
-    { rank: 6, name: "Consensus", rating: 2050, tokens: 7650, wins: 41 },
-    { rank: 7, name: "Hivemind", rating: 1980, tokens: 6890, wins: 38 },
-    { rank: 8, name: "Predictor", rating: 1920, tokens: 6120, wins: 33 },
-  ]
+  const [leaderboard, setLeaderboard] = useState<LeaderboardEntry[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchLeaderboard = async () => {
+      try {
+        setIsLoading(true)
+        setError(null)
+        // Fetch leaderboard data, passing the current player's ID to highlight them if needed
+        const response = await getLeaderboard(50, 0, game.playerId ?? undefined)
+        setLeaderboard(response.leaderboard)
+      } catch (err: any) {
+        setError(err.message)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    void fetchLeaderboard()
+  }, [game.playerId]) // Dependency array ensures this runs when the component mounts or playerID changes
+
+  const renderContent = () => {
+    if (isLoading) {
+      return <div className="text-center py-8 text-muted-foreground">Loading leaderboard...</div>
+    }
+
+    if (error) {
+      return <div className="text-center py-8 text-red-500">Error: {error}</div>
+    }
+
+    if (leaderboard.length === 0) {
+      return <div className="text-center py-8 text-muted-foreground">The leaderboard is empty.</div>
+    }
+
+    return leaderboard.map((player) => (
+      <div key={player.rank} className="grid grid-cols-5 gap-4 p-4 border-t text-sm">
+        <div className="font-medium">#{player.rank}</div>
+        <div>{player.username}</div>
+        <div>{player.rating}</div>
+        {/* Note: The API provides 'balance', which is used as 'tokens' here */}
+        <div>{player.balance.toLocaleString()}</div>
+        <div>{player.wins}</div>
+      </div>
+    ))
+  }
 
   return (
     <div className="min-h-screen">
@@ -41,16 +76,7 @@ export default function Leaderboard() {
             <div>Tokens</div>
             <div>Wins</div>
           </div>
-
-          {players.map((player) => (
-            <div key={player.rank} className="grid grid-cols-5 gap-4 p-4 border-t text-sm">
-              <div className="font-medium">#{player.rank}</div>
-              <div>{player.name}</div>
-              <div>{player.rating}</div>
-              <div>{player.tokens.toLocaleString()}</div>
-              <div>{player.wins}</div>
-            </div>
-          ))}
+          {renderContent()}
         </div>
       </div>
     </div>

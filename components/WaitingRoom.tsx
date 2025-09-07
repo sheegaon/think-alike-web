@@ -24,7 +24,7 @@ export default function WaitingRoom() {
   ]
 
   const handleQuickJoin = (tier: string) => {
-    game.quickJoin(tier)
+    void game.quickJoin(tier)
   }
 
   return (
@@ -36,7 +36,9 @@ export default function WaitingRoom() {
           <h1 className="text-2xl font-bold mb-4">Waiting Room</h1>
         </div>
 
-        <div className="text-center text-muted-foreground">Game starts once {game.players.length} / 4 players have joined.</div>
+        <div className="text-center text-muted-foreground">
+          Game starts once {game.players.length} / {game.minPlayers} players have joined.
+        </div>
 
         <div className="space-y-4">
           <SectionHeader title="Switch Rooms" />
@@ -62,7 +64,7 @@ export default function WaitingRoom() {
         </Frame>
 
         <div className="flex items-center justify-between pt-4 border-t">
-          <div className="text-sm text-muted-foreground">Entry fee: {game.stake}</div>
+          <div className="text-sm text-muted-foreground">Entry fee: {game.entryFee}</div>
           <div className="flex gap-2">
             <Button variant="outline" onClick={() => game.setCurrentView("Lobby")}>
               Lobby

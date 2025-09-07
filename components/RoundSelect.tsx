@@ -42,9 +42,9 @@ export default function RoundSelect() {
     )
   }
 
-  const { adjective, nouns } = game.round
-  const totalTime = game.stake === 50 ? 45 : 30 // This should ideally come from the backend
-  const progress = ((totalTime - timeLeft) / totalTime) * 100
+  const { adjective, nouns, selection_duration } = game.round
+  const totalTime = selection_duration || 30 // Use duration from backend, with a fallback
+  const progress = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0
 
   return (
     <div className="min-h-screen">
