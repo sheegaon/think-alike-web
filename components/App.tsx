@@ -1,6 +1,6 @@
 "use client"
 
-import { useGame } from "./context/GameContext"
+import { useGame } from "@/components/context"
 import Login from "./Login"
 import Home from "./Home"
 import Lobby from "./Lobby"

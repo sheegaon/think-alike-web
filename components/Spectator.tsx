@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import WireCard from "./shared/WireCard"
 import ProgressBar from "./shared/ProgressBar"
 import StatusBar from "./shared/StatusBar"
-import { useGame } from "./context/GameContext"
+import { useGame } from "@/components/context"
 import { Icons } from "@/lib/icons"
 import Frame from "./shared/Frame"
 
@@ -15,8 +15,8 @@ export default function Spectator() {
   const [timeLeft, setTimeLeft] = useState(0)
 
   useEffect(() => {
-    if (game.currentRound?.selectionDeadline) {
-      const deadline = game.currentRound.selectionDeadline
+    if (game.round?.selectionDeadline) {
+      const deadline = game.round.selectionDeadline
       const updateTimer = () => {
         const now = Date.now()
         const remaining = Math.max(0, Math.round((deadline - now) / 1000))
@@ -27,17 +27,17 @@ export default function Spectator() {
       const timerInterval = setInterval(updateTimer, 1000)
       return () => clearInterval(timerInterval)
     }
-  }, [game.currentRound?.selectionDeadline])
+  }, [game.round?.selectionDeadline])
 
   const handleQueueToggle = (wantsToJoin: boolean) => {
-    game.toggleSpectatorQueue(wantsToJoin)
+    game.actions.toggleSpectatorQueue(wantsToJoin)
   }
 
   const totalTime = game.stake === 50 ? 45 : 30 // This should ideally come from the backend
   const progress = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0
 
   const renderGameView = () => {
-    if (!game.currentRound || !game.currentRound.adjective) {
+    if (!game.round || !game.round.adjective) {
       return (
         <div className="text-center text-muted-foreground py-10">
           <p>Waiting for the next round to begin...</p>
@@ -52,7 +52,7 @@ export default function Spectator() {
           <div className="flex items-center justify-between text-sm">
             <span>Time: {timeLeft}s</span>
             <span>
-              Players Locked In: {game.currentRound.playersLockedIn} / {game.players.length}
+              Players Locked In: {game.round.playersLockedIn} / {game.players.length}
             </span>
           </div>
           <ProgressBar progress={progress} />
@@ -60,13 +60,13 @@ export default function Spectator() {
 
         {/* Sticky adjective card */}
         <div className="bg-primary text-primary-foreground p-4 rounded-lg text-center">
-          <h2 className="text-xl font-bold">{game.currentRound.adjective}</h2>
+          <h2 className="text-xl font-bold">{game.round.adjective}</h2>
         </div>
 
         {/* Noun cards (read-only, responsive grid) */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {game.currentRound.nouns.map((noun) => (
-            <WireCard key={noun} text={noun} className="cursor-default opacity-75" />
+          {game.round.nouns.map((noun: string, index: number) => (
+            <WireCard key={`${noun}-${index}`} text={noun} className="cursor-default opacity-75" />
           ))}
         </div>
       </>
@@ -80,7 +80,7 @@ export default function Spectator() {
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-xl font-bold">Spectating</h1>
-          <Button variant="outline" onClick={() => game.leaveRoom()}>
+          <Button variant="outline" onClick={() => game.actions.leaveRoom()}>
             <Icons.Logout />
             Leave
           </Button>

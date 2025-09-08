@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { useGame } from "./context/GameContext"
+import { useGame } from "@/components/context"
 import Frame from "./shared/Frame"
 import StatusBar from "./shared/StatusBar"
 
@@ -22,9 +22,9 @@ export default function RoundReveal() {
     // This effect only runs when results are available (RESULTS phase)
     if (game.results) {
       const { nouns, selection_counts, your_choice } = game.results
-      const totalPicks = selection_counts.reduce((sum, count) => sum + count, 0)
+      const totalPicks = selection_counts.reduce((sum: any, count: any) => sum + count, 0)
 
-      const combinedResults = nouns.map((noun, index) => ({
+      const combinedResults = nouns.map((noun: any, index: string | number) => ({
         choice: noun,
         count: selection_counts[index],
         percentage: totalPicks > 0 ? (selection_counts[index] / totalPicks) * 100 : 0,
@@ -32,7 +32,7 @@ export default function RoundReveal() {
       }))
 
       // Sort by count (popularity) in ascending order for the reveal
-      combinedResults.sort((a, b) => a.count - b.count)
+      combinedResults.sort((a: { count: number }, b: { count: number }) => a.count - b.count)
 
       setSortedResults(combinedResults)
       setRevealIndex(0) // Reset for staggered reveal

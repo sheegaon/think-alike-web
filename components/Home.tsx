@@ -7,7 +7,7 @@ import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
 import { Icons } from "@/lib/icons"
 import { getRooms, RoomSummaryItem } from "@/lib/rest"
-import { useGame } from "./context/GameContext"
+import { useGame } from "@/components/context"
 
 
 interface QuickJoinOption {
@@ -56,12 +56,12 @@ export default function Home() {
     void fetchQuickJoinData()
   }, [fetchQuickJoinData])
 
-  const handleQuickJoin = (tier: string) => {
-    void game.quickJoin(tier)
+  const handleQuickJoin = (tier: string | null) => {
+    void game.actions.quickJoin(tier)
   }
 
   const handleLogout = () => {
-    void game.logout()
+    void game.actions.logout()
   }
 
   return (
@@ -75,24 +75,24 @@ export default function Home() {
         </div>
 
         <div className="grid gap-4 max-w-md mx-auto">
-          <Button size="lg" onClick={() => game.setCurrentView("Lobby")}>
+          <Button size="lg" onClick={() => game.actions.setCurrentView("lobby")}>
             Show All Available Rooms
           </Button>
 
           {!game.isLoading && game.lastStake && game.lastTier && (
-            <Button size="lg" variant="outline" onClick={() => handleQuickJoin(game.lastTier!)}>
+            <Button size="lg" variant="outline" onClick={() => handleQuickJoin(game.lastTier)}>
               Quick Rejoin ({game.lastStake} coins)
             </Button>
           )}
 
           <div className="grid grid-cols-4 gap-2">
-            <Button variant="outline" className="bg-transparent" onClick={() => game.setCurrentView("Leaderboard")}>
+            <Button variant="outline" className="bg-transparent" onClick={() => game.actions.setCurrentView("leaderboard")}>
               <Icons.Leaderboard />
             </Button>
-            <Button variant="outline" className="bg-transparent" onClick={() => game.setCurrentView("Rewards")}>
+            <Button variant="outline" className="bg-transparent" onClick={() => game.actions.setCurrentView("rewards")}>
               <Icons.Rewards />
             </Button>
-            <Button variant="outline" className="bg-transparent" onClick={() => game.setCurrentView("Settings")}>
+            <Button variant="outline" className="bg-transparent" onClick={() => game.actions.setCurrentView("settings")}>
               <Icons.Gear />
             </Button>
             <Button variant="outline" className="bg-transparent" onClick={handleLogout}>

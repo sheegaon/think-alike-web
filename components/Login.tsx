@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Frame from "./shared/Frame"
-import { useGame } from "./context/GameContext"
+import { useGame } from "@/components/context"
 
 interface LoginProps {
   onContinueAction: () => void
@@ -18,7 +18,7 @@ export default function Login({ onContinueAction }: LoginProps) {
     if (!username.trim()) return
 
     try {
-      await game.register(username.trim())
+      await game.actions.register(username.trim())
       onContinueAction()
     } catch (error) {
       // Error is handled by GameContext and shown via game.error
