@@ -44,6 +44,10 @@ export const createInitialState = (): GameState => ({
   room: null,
   players: [],
   isInRoom: false,
+  prizePool: 0,
+  entryFee: 0,
+  capacity: 12,
+  stake: 0,
 
   // Game state
   round: null,
@@ -51,6 +55,8 @@ export const createInitialState = (): GameState => ({
   commitState: createInitialCommitState(),
   results: null,
   lastChoice: null,
+  lastStake: null,
+  lastTier: null,
 
   // UI state
   notifications: [],

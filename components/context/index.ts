@@ -16,6 +16,7 @@ export type {
   GameState,
   GameActions,
   GameContextType,
+  EndOfRoundAction,
 } from './types';
 
 // Utility exports

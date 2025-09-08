@@ -11,6 +11,8 @@ export type Screen =
   | 'rewards'
   | 'settings';
 
+export type EndOfRoundAction = 'continue' | 'sit_out' | 'leave';
+
 export interface Player {
   id: string;
   username: string;
@@ -28,13 +30,16 @@ export interface Room {
   maxPlayers: number;
   currentPlayers: number;
   phase: string;
+  spectators: number;
 }
 
 export interface Round {
   id: string;
+  roundKey: string;
   adjective: string;
   nouns: string[];
   timeLeft: number;
+  playersLockedIn: number;
   phase: 'waiting' | 'selecting' | 'revealing' | 'complete';
   resultsRevealed: boolean;
 }
@@ -79,11 +84,16 @@ export interface GameSettings {
 
 export interface GameResults {
   roundId: string;
+  roundKey: string;
   choices: Array<{
     noun: string;
     playerCount: number;
     percentage: number;
   }>;
+  adjective: string;
+  nouns: string[];
+  selectionCounts: number[];
+  yourChoice: number;
   playerChoice: string;
   winnings: number;
   isCorrect: boolean;
@@ -108,8 +118,14 @@ export interface GameState {
   commitState: CommitState;
   results: GameResults | null;
   lastChoice: string | null;
+  lastTier: string | null;
+  lastStake: number | null;
 
   // UI state
+  prizePool: number;
+  entryFee: number;
+  capacity: number;
+  stake: number;
   notifications: Notification[];
   recentEmotes: Emote[];
   queueState: QueueState;
@@ -130,7 +146,7 @@ export interface GameActions {
   logout: () => void;
 
   // Room management
-  quickJoin: (tier?: string) => Promise<void>;
+  quickJoin: (tier?: string | null) => Promise<void>;
   joinRoom: (roomId: string) => Promise<void>;
   leaveRoom: () => void;
   spectateRoom: (roomId: string) => Promise<void>;
@@ -152,6 +168,9 @@ export interface GameActions {
 
   // Queue
   toggleSpectatorQueue: () => void;
+
+  // Game actions
+  setLeaveAtEnd: (leave: boolean) => void;
 
   // Utility
   setQuickStake: (stake: number) => void;
