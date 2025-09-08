@@ -1,7 +1,7 @@
-// Socket.IO client for Think Alike web frontend
+// Socket.IO client for Think Alike web-based frontend
 // Provides WebSocket connection management and game event handling
 
-import io from "socket.io-client"
+import {io, Socket } from "socket.io-client"
 import { CONFIG } from "./config"
 
 // --- Event Payload Interfaces ---
@@ -136,7 +136,17 @@ export function createGameSocket(): GameSocket {
     isConnecting = true
 
     try {
-      const url = new URL(CONFIG.WS_NAMESPACE, CONFIG.WS_URL).toString()
+      // Safer URL construction that handles various namespace configurations
+      const baseUrl = CONFIG.WS_URL.replace(/\/$/, '') // Remove trailing slash
+      let namespace = CONFIG.WS_NAMESPACE || '/' // Default to root namespace
+
+      // Ensure namespace starts with slash
+      if (!namespace.startsWith('/')) {
+        namespace = '/' + namespace
+      }
+
+      // Construct the full URL safely
+      const url = baseUrl + namespace
       socket = io(url, {
         reconnection: true,
         transports: ["websocket"],

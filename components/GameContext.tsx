@@ -11,6 +11,50 @@ interface Player {
   isSpectator: boolean
 }
 
+interface UserStats {
+  rating: number
+  wins: number
+  gamesPlayed: number
+}
+
+interface EmoteData {
+  id: number
+  emote: string
+  username: string
+  timestamp: string
+}
+
+interface ConnectionError {
+  message: string
+  timestamp: number
+}
+
+interface GameNotification {
+  id: number
+  message: string
+  type: 'info' | 'success' | 'warning' | 'error'
+  timestamp: number
+}
+
+interface CurrentRound {
+  adjective: string | null
+  nouns: string[]
+  timeLeft: number
+  phase: "waiting" | "selecting" | "revealing" | "results"
+  playersLockedIn: number
+  results: number[]
+  roundKey: string | null
+  pot: number
+  selectionDeadline: number | null
+  selectionDuration: number
+}
+
+interface QueueState {
+  position: number
+  totalWaiting: number
+  wantsToJoin: boolean
+}
+
 export interface GameSettings {
   sound: boolean
   haptics: boolean
@@ -51,6 +95,14 @@ interface GameState {
   lastChoice: { choice: number; nonce: string } | null
   commitsCount: number
   endOfRoundAction: EndOfRoundAction
+  currentRound: CurrentRound
+  queueState: QueueState
+
+  // Enhanced features
+  userStats: UserStats
+  recentEmotes: EmoteData[]
+  connectionErrors: ConnectionError[]
+  gameNotifications: GameNotification[]
 
   // UI & System State
   settings: GameSettings
@@ -75,8 +127,15 @@ interface GameContextType extends GameState {
   toggleQueue: (wantsToJoin: boolean) => void
   updateBalance: (newBalance: number) => void
   updateSettings: (newSettings: Partial<GameSettings>) => void
+  toggleSpectatorQueue: (wantsToJoin: boolean) => void
   logout: () => Promise<void>
   clearError: () => void
+
+  // --- NOTIFICATIONS & STATS MANAGEMENT ---
+  addNotification: (message: string, type?: GameNotification['type']) => void
+  clearNotification: (id: number) => void
+  clearAllNotifications: () => void
+  updateUserStats: (stats: Partial<UserStats>) => void
 }
 
 // --- INITIAL STATE ---
@@ -113,6 +172,33 @@ const initialState: GameState = {
   isLoading: false,
   error: null,
   queuePosition: null,
+
+  // --- NOTIFICATIONS & STATS MANAGEMENT ---
+  gameNotifications: [],
+  connectionErrors: [],
+  recentEmotes: [],
+  userStats: {
+    rating: 1000,
+    wins: 0,
+    gamesPlayed: 0,
+  },
+  currentRound: {
+    adjective: null,
+    nouns: [],
+    timeLeft: 0,
+    phase: "waiting",
+    playersLockedIn: 0,
+    results: [],
+    roundKey: null,
+    pot: 0,
+    selectionDeadline: null,
+    selectionDuration: 0,
+  },
+  queueState: {
+    position: 0,
+    totalWaiting: 0,
+    wantsToJoin: false,
+  }
 }
 
 // --- CONTEXT ---
@@ -166,6 +252,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.on("connect", () => {
       console.log("Socket connected.")
       updateState({ isConnected: true })
+      // Clear connection errors on successful connect
+      setState(prev => ({ ...prev, connectionErrors: [] }))
     })
 
     socket.on("disconnect", () => {
@@ -181,6 +269,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
         }
         return { ...prev, ...updates }
       })
+    })
+
+    // Enhanced connection error handling
+    socket.on("connect_error", (error: Error) => {
+      console.error("WebSocket connection error:", error)
+      const errorMsg = error.message || "Connection failed"
+      setState(prev => ({
+        ...prev,
+        isConnected: false,
+        connectionErrors: [...prev.connectionErrors.slice(-4), { message: errorMsg, timestamp: Date.now() }],
+        gameNotifications: [...prev.gameNotifications, {
+          id: Date.now(),
+          message: `Connection error: ${errorMsg}`,
+          type: 'error',
+          timestamp: Date.now()
+        }]
+      }))
     })
 
     socket.on("player_joined_game", (data) => {
@@ -203,11 +308,31 @@ export function GameProvider({ children }: { children: ReactNode }) {
         isLoading: false,
       })
       pendingRoomJoin.current = null
+
+      // Add success notification
+      setState(prev => ({
+        ...prev,
+        gameNotifications: [...prev.gameNotifications, {
+          id: Date.now(),
+          message: `Joined ${data.tier} room`,
+          type: 'success',
+          timestamp: Date.now()
+        }]
+      }))
     })
 
     socket.on("player_joined_room", (data) => {
       console.log("Player joined room:", data)
-      setState((s) => ({ ...s, players: [...s.players, { username: data.username, isSpectator: data.is_spectator }] }))
+      setState((s) => ({
+        ...s,
+        players: [...s.players, { username: data.username, isSpectator: data.is_spectator }],
+        gameNotifications: [...s.gameNotifications, {
+          id: Date.now(),
+          message: `${data.username} joined the room`,
+          type: 'info',
+          timestamp: Date.now()
+        }]
+      }))
     })
 
     socket.on("player_left_room", (data) => {
@@ -216,12 +341,29 @@ export function GameProvider({ children }: { children: ReactNode }) {
         ...s,
         players: s.players.filter((p) => p.username !== data.username),
         gamePhase: data.player_count < s.minPlayers ? "WAITING" : s.gamePhase,
+        gameNotifications: [...s.gameNotifications, {
+          id: Date.now(),
+          message: `${data.username} left the room`,
+          type: 'info',
+          timestamp: Date.now()
+        }]
       }))
     })
 
     socket.on("deal", (data) => {
       console.log("Deal received:", data)
       updateState({ round: data, gamePhase: "SELECT", results: null, commitsCount: 0, lastChoice: null })
+
+      // Add round start notification
+      setState(prev => ({
+        ...prev,
+        gameNotifications: [...prev.gameNotifications, {
+          id: Date.now(),
+          message: `New round: ${data.adjective}`,
+          type: 'success',
+          timestamp: Date.now()
+        }]
+      }))
     })
 
     socket.on("commits_update", (data) => {
@@ -233,11 +375,59 @@ export function GameProvider({ children }: { children: ReactNode }) {
       console.log("Reveal requested, triggering auto-reveal.")
       updateState({ gamePhase: "REVEAL" })
       revealChoice()
+
+      // Add reveal notification
+      setState(prev => ({
+        ...prev,
+        gameNotifications: [...prev.gameNotifications, {
+          id: Date.now(),
+          message: "Time to reveal your choice!",
+          type: 'warning',
+          timestamp: Date.now()
+        }]
+      }))
     })
 
     socket.on("round_results", (data) => {
       console.log("Round results:", data)
       updateState({ results: data, balance: data.new_balance, gamePhase: "RESULTS" })
+
+      // Add payout notification if applicable
+      if (data.payout && data.payout > 0) {
+        setState(prev => ({
+          ...prev,
+          gameNotifications: [...prev.gameNotifications, {
+            id: Date.now(),
+            message: `You won ${data.payout} tokens!`,
+            type: 'success',
+            timestamp: Date.now()
+          }]
+        }))
+      }
+    })
+
+    // Enhanced emote handling
+    socket.on("player_emote", (data) => {
+      console.log("Player emote:", data)
+      const emoteData: EmoteData = {
+        id: Date.now() + Math.random(),
+        emote: data.emote,
+        username: data.username,
+        timestamp: data.timestamp,
+      }
+
+      setState(prev => ({
+        ...prev,
+        recentEmotes: [...prev.recentEmotes.slice(-9), emoteData] // Keep last 10 emotes
+      }))
+
+      // Auto-remove emote after 5 seconds
+      setTimeout(() => {
+        setState(prev => ({
+          ...prev,
+          recentEmotes: prev.recentEmotes.filter(e => e.id !== emoteData.id)
+        }))
+      }, 5000)
     })
 
     socket.on("next_round_info", (data) => {
@@ -252,16 +442,51 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.on("queue_update", (data) => {
       console.log("Queue update:", data)
       updateState({ queuePosition: data.position })
+
+      // Notify if user is next in line
+      if (data.position === 1) {
+        setState(prev => ({
+          ...prev,
+          gameNotifications: [...prev.gameNotifications, {
+            id: Date.now(),
+            message: "You're next in line to join!",
+            type: 'info',
+            timestamp: Date.now()
+          }]
+        }))
+      }
     })
 
     socket.on("error", (data) => {
       console.error("WebSocket error:", data)
-      updateState({ error: data.message || "An unknown WebSocket error occurred", isLoading: false })
+      const errorMsg = data.message || "An unknown WebSocket error occurred"
+      updateState({ error: errorMsg, isLoading: false })
+
+      setState(prev => ({
+        ...prev,
+        gameNotifications: [...prev.gameNotifications, {
+          id: Date.now(),
+          message: `Error: ${errorMsg}`,
+          type: 'error',
+          timestamp: Date.now()
+        }]
+      }))
     })
 
     socket.on("game_error", (data) => {
       console.error("Game error:", data)
-      updateState({ error: data.message || "An unknown game error occurred", isLoading: false })
+      const errorMsg = data.message || "An unknown game error occurred"
+      updateState({ error: errorMsg, isLoading: false })
+
+      setState(prev => ({
+        ...prev,
+        gameNotifications: [...prev.gameNotifications, {
+          id: Date.now(),
+          message: `Game Error: ${errorMsg}`,
+          type: 'error',
+          timestamp: Date.now()
+        }]
+      }))
     })
 
     socket.connect()
@@ -411,8 +636,48 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
     setState(initialState)
   }, [leaveRoom])
+  const toggleSpectatorQueue = (wantsToJoin: boolean) => {
+    socketRef.current?.toggleQueue(wantsToJoin)
+  }
+
 
   const clearError = () => updateState({ error: null })
+
+  // --- NOTIFICATIONS & STATS MANAGEMENT ---
+
+  const addNotification = (message: string, type: GameNotification['type'] = 'info') => {
+    const id = Date.now()
+    setState(prev => ({
+      ...prev,
+      gameNotifications: [...prev.gameNotifications, { id, message, type, timestamp: id }],
+    }))
+
+    // Auto-remove notification after 5 seconds
+    setTimeout(() => {
+      setState(prev => ({
+        ...prev,
+        gameNotifications: prev.gameNotifications.filter(n => n.id !== id)
+      }))
+    }, 5000)
+  }
+
+  const clearNotification = (id: number) => {
+    setState(prev => ({
+      ...prev,
+      gameNotifications: prev.gameNotifications.filter(n => n.id !== id),
+    }))
+  }
+
+  const clearAllNotifications = () => {
+    setState(prev => ({ ...prev, gameNotifications: [] }))
+  }
+
+  const updateUserStats = (stats: Partial<UserStats>) => {
+    setState(prev => ({
+      ...prev,
+      userStats: { ...prev.userStats, ...stats },
+    }))
+  }
 
   return (
     <GameContext.Provider
@@ -433,6 +698,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
         updateSettings,
         logout,
         clearError,
+
+        // --- NOTIFICATIONS & STATS MANAGEMENT ---
+        addNotification,
+        clearNotification,
+        clearAllNotifications,
+        updateUserStats,
+        toggleSpectatorQueue,
       }}
     >
       {children}
@@ -442,7 +714,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
 export function useGame() {
   const context = useContext(GameContext)
-  if (context === undefined) {
+  if (!context) {
     throw new Error("useGame must be used within a GameProvider")
   }
   return context

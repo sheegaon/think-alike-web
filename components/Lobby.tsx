@@ -7,7 +7,7 @@ import { useGame } from "./GameContext"
 import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
-import { Icons } from "./shared/icons"
+import { Icons } from "@/lib/icons"
 import { getRooms, type RoomResponse } from "@/lib/rest"
 
 // Helper function to format tier names for display

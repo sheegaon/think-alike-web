@@ -1,47 +1,21 @@
 "use client"
 
-import { useGame } from "../GameContext"
-import { Icons } from "./icons"
+interface StatusBarProps {
+  className?: string
+}
 
-export default function StatusBar() {
-  const game = useGame()
-
-  // Don't render the status bar if the player is not fully logged in.
-  if (!game.playerId) {
-    return null
-  }
-
+export default function StatusBar({ className }: StatusBarProps) {
   return (
-    <div className="bg-card border-b px-4 py-2 flex items-center justify-between text-sm">
-      <div className="flex items-center gap-4">
-        <div className="flex items-center gap-1">
-          <Icons.Username />
-          <span className="font-medium">{game.username}</span>
+    <div className={`bg-background border-b px-4 py-2 ${className || ''}`}>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+          <span className="text-sm text-muted-foreground">Connected</span>
         </div>
-
-        <div className="flex items-center gap-1">
-          <Icons.SyncCoins />
-          {/* Render balance only when it's a valid number to prevent crashes */}
-          <span className="font-medium">
-            {typeof game.balance === 'number' ? game.balance.toLocaleString() : '...'}
-          </span>
+        <div className="text-sm text-muted-foreground">
+          Think Alike
         </div>
       </div>
-
-      {game.inRoom && (
-        <div className="flex items-center gap-4 text-muted-foreground">
-          <div className="flex items-center gap-1">
-            <Icons.Players />
-            <span>
-              {game.players.length}/{game.spectators + game.players.length}
-            </span>
-          </div>
-          <div className="flex items-center gap-1">
-            <Icons.SyncCoins />
-            <span>Pool {game.stake * game.players.length}</span>
-          </div>
-        </div>
-      )}
     </div>
   )
 }

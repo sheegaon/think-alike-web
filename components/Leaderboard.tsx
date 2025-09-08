@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import StatusBar from "./shared/StatusBar"
-import { Icons } from "./shared/icons"
+import { Icons } from "@/lib/icons"
 import { useGame } from "./GameContext"
 import { getLeaderboard, type LeaderboardEntry } from "@/lib/rest"
 

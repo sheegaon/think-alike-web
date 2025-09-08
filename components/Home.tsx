@@ -2,12 +2,13 @@
 
 import { useEffect, useState, useCallback } from "react"
 import { Button } from "@/components/ui/button"
-import { useGame } from "./GameContext"
 import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
-import { Icons } from "./shared/icons"
+import { Icons } from "@/lib/icons"
 import { getRooms, RoomSummaryItem } from "@/lib/rest"
+import { useGame } from "./GameContext"
+
 
 interface QuickJoinOption {
   name: string

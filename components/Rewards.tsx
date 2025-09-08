@@ -7,7 +7,7 @@ import ProgressBar from "./shared/ProgressBar"
 import Pill from "./shared/Pill"
 import StatusBar from "./shared/StatusBar"
 import { useState, useEffect, useCallback } from "react"
-import { Icons } from "./shared/icons"
+import { Icons } from "@/lib/icons"
 import { useGame } from "./GameContext"
 import { getPlayerQuests, claimQuestReward, type Quest } from "@/lib/rest"
 
@@ -66,7 +66,7 @@ export default function Rewards() {
     if (questList.length === 0) {
       return (
         <div className="text-center py-8 text-muted-foreground">
-          <Icons.Rewards className="mx-auto mb-2 w-8 h-8 opacity-50" />
+          <Icons.Rewards />
           <p className="text-sm">No quests available right now.</p>
         </div>
       )

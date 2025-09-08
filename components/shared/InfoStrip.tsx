@@ -1,4 +1,4 @@
-import { Icons } from "./icons"
+import { Icons } from "@/lib/icons"
 
 interface InfoStripProps {
   players: number

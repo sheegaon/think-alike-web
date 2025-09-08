@@ -121,7 +121,6 @@ This directory contains custom, reusable components that are specific to the `Th
 
 - **`Pill.tsx`**: A simple component for displaying a label and value in a styled "pill" format.
 - **`Frame.tsx`**: A container component that provides a consistent styled frame with a border and background for its children.
-- **`icons.tsx`**: A collection of SVG icon components used throughout the application, exported as a single `Icons` object.
 - **`WireCard.tsx`**: A button styled as a card, with a "selected" state. It's used for the noun choices in the `RoundSelect` screen.
 - **`InfoStrip.tsx`**: A component for displaying player count and the current prize pool.
 - **`StatusBar.tsx`**: A component that displays user information like username and balance from the `GameContext`. When in a room, it also shows player count and the prize pool.
@@ -168,3 +167,47 @@ As detailed earlier, `GameContext.tsx` is the central hub of the application. It
 - Because all components are wrapped by the `GameProvider`, any component that uses the `useGame()` hook will automatically re-render with the new state, ensuring the UI is always in sync with the application's data.
 
 This architecture creates a clear, one-way data flow that makes the application easier to understand and maintain. A new developer should focus on understanding the `GameState` and actions in `GameContext.tsx`, as this is where the UI and the backend services are brought together.
+
+# Necessary Enhancements to GameContext.tsx
+
+The current implementation in `GameContext.tsx` covers most core features, but a few enhancements and restorations from `GameContext-old.jsx` are recommended:
+
+**1. More granular round state:**  
+`GameContext-old.jsx` uses a detailed `currentRound` object for round-specific UI state (adjective, nouns, timeLeft, phase, etc.), while `GameContext.tsx` splits this between `round` and `currentRound`. Consider consolidating or ensuring all round properties are present and updated on socket events.
+
+**2. Commit-reveal state:**  
+The old context tracks commit/reveal status (`commitState`) with properties like `hasCommitted`, `hasRevealed`, `choice`, `nonce`, and `hash`. The new context only stores `lastChoice` and does not expose commit/reveal status.  
+**Enhancement:** Add a `commitState` object to `GameState` for better tracking and UI feedback.
+
+**3. Notification auto-removal:**  
+Both implementations auto-remove notifications after 5 seconds, but the old context also limits the number of notifications to 10.  
+**Enhancement:** Limit notification array length to 10 for better UX.
+
+**4. Emote auto-removal:**  
+The old context auto-removes emotes after 5 seconds and limits to 10.  
+**Enhancement:** Apply the same limit and auto-removal logic to `recentEmotes`.
+
+**5. Settings:**  
+The old context has more settings (`showTimers`, `dataSaver`, `allowSpectators`).  
+**Enhancement:** Consider restoring these settings if needed for your UI.
+
+**6. Queue state:**  
+The old context provides a full `queueState` object and a `toggleSpectatorQueue` method.  
+**Enhancement:** Ensure `queueState` is always updated on `queue_update` and exposed in context.
+
+**7. Error handling:**  
+The old context handles generic and game-specific errors, clearing local storage and updating state.  
+**Enhancement:** Review error handlers to ensure all edge cases (like invalid tokens) are covered.
+
+**8. Legacy/utility methods:**  
+The old context exposes utility methods like `setQuickStake`, `updateSetting`, and notification management.  
+**Enhancement:** Ensure all needed utility methods are exposed.
+
+**Summary:**  
+- Add `commitState` to context for commit/reveal tracking.
+- Limit notifications and emotes to last 10.
+- Restore any missing settings.
+- Ensure queue state and error handling are robust.
+- Review socket event handlers for completeness.
+
+These changes will make `GameContext.tsx` fully feature-complete compared to the old implementation.

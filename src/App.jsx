@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import { GameProvider } from "./context/GameContext"
+import { GameProvider } from "../components/GameContext"
 import "./App.css"
 
 // Import all screens
