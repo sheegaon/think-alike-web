@@ -27,6 +27,7 @@ export interface Room {
   tier: string;
   stake: number;
   entryFee: number;
+  minPlayers: number;
   maxPlayers: number;
   currentPlayers: number;
   phase: string;
@@ -42,12 +43,14 @@ export interface Round {
   playersLockedIn: number;
   phase: 'waiting' | 'selecting' | 'revealing' | 'complete';
   resultsRevealed: boolean;
+  selectionDeadline: number | null;
+  selectionDuration: number | null;
 }
 
 export interface CommitState {
   hasCommitted: boolean;
   hasRevealed: boolean;
-  choice: string | null;
+  choice: number | null;
   nonce: string | null;
   hash: string | null;
 }
@@ -94,7 +97,7 @@ export interface GameResults {
   nouns: string[];
   selectionCounts: number[];
   yourChoice: number;
-  playerChoice: string;
+  playerChoice: number;
   winnings: number;
   isCorrect: boolean;
 }
@@ -117,7 +120,7 @@ export interface GameState {
   currentRound: Round | null;
   commitState: CommitState;
   results: GameResults | null;
-  lastChoice: string | null;
+  lastChoice: number | null;
   lastTier: string | null;
   lastStake: number | null;
 
@@ -146,13 +149,13 @@ export interface GameActions {
   logout: () => void;
 
   // Room management
-  quickJoin: (tier?: string | null) => Promise<void>;
+  quickJoin: (tier?: string | null | undefined) => Promise<void>;
   joinRoom: (roomId: string) => Promise<void>;
   leaveRoom: () => void;
   spectateRoom: (roomId: string) => Promise<void>;
 
   // Game actions
-  commitChoice: (choice: string) => Promise<void>;
+  commitChoice: (choice: number) => Promise<void>;
 
   // Navigation
   setCurrentView: (view: Screen) => void;
@@ -171,6 +174,7 @@ export interface GameActions {
 
   // Game actions
   setLeaveAtEnd: (leave: boolean) => void;
+  setEndOfRoundAction: (action: EndOfRoundAction) => void;
 
   // Utility
   setQuickStake: (stake: number) => void;
@@ -178,4 +182,8 @@ export interface GameActions {
 
 export interface GameContextType extends GameState {
   actions: GameActions;
+  room: Room;
+  round: Round;
+  results: GameResults;
+  endOfRoundAction: EndOfRoundAction;
 }

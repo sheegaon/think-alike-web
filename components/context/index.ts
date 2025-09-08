@@ -1,5 +1,36 @@
 // Main exports for the GameContext module
-export { GameProvider, useGame, GameContext } from './GameContext';
+export {
+  GameProvider,
+  useGame,
+  useGameActions,
+  useGameState,
+  usePlayer,
+  useRoom,
+  useRound,
+  useResults,
+  useNotifications,
+  useEmotes,
+  useQueue,
+  useSettings,
+  useCommitState,
+  useCurrentView,
+  useIsLoading,
+  useError,
+  useNavigation,
+  useRoomOperations,
+  useGameOperations,
+  useAuth,
+  useGameDebug,
+  GameContext
+} from './GameContext';
+
+// Action and context exports
+export {
+  createGameActions,
+  createAllSocketEventHandlers,
+  type GameActionsContext,
+  type GameStateUpdater,
+} from './gameActions';
 
 // Type exports
 export type {
@@ -30,8 +61,6 @@ export {
   limitArrayLength,
   loadSettingsFromStorage,
   saveSettingsToStorage,
-  loadPlayerFromStorage,
-  savePlayerToStorage,
 } from './initialState';
 
 // Notification utilities

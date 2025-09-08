@@ -17,7 +17,7 @@ export default function WaitingRoom() {
 
   // Filter out the current tier to show other options
   const otherTiers = ALL_TIERS.filter(
-    (option) => option.tier.toLowerCase() !== game.tier?.toLowerCase()
+    (option) => option.tier.toLowerCase() !== game.room?.tier?.toLowerCase()
   )
 
   const quickJoinOptions = [{ name: "Any", tier: "ANY" }, ...otherTiers]
@@ -31,7 +31,7 @@ export default function WaitingRoom() {
   ]
 
   const handleQuickJoin = (tier: string) => {
-    void game.quickJoin(tier)
+    void game.actions.quickJoin(tier)
   }
 
   return (
@@ -44,7 +44,7 @@ export default function WaitingRoom() {
         </div>
 
         <div className="text-center text-muted-foreground">
-          Game starts once {game.players.length} / {game.minPlayers} players have joined.
+          Game starts once {game.players.length} / {game.room?.minPlayers} players have joined.
         </div>
 
         <div className="space-y-4">
@@ -73,7 +73,7 @@ export default function WaitingRoom() {
         <div className="flex items-center justify-between pt-4 border-t">
           <div className="text-sm text-muted-foreground">Entry fee: {game.entryFee}</div>
           <div className="flex gap-2">
-            <Button variant="outline" onClick={() => game.setCurrentView("Lobby")}>
+            <Button variant="outline" onClick={() => game.actions.setCurrentView("lobby")}>
               Lobby
             </Button>
           </div>

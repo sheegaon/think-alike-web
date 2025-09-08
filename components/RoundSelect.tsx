@@ -30,7 +30,7 @@ export default function RoundSelect() {
 
   const handleCardSelect = (index: number) => {
     if (game.commitState.choice === null && !game.commitState.hasCommitted) {
-      void game.actions.makeChoice(index)
+      void game.actions.commitChoice(index)
     }
   }
 
