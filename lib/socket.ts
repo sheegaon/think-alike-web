@@ -1,7 +1,7 @@
 // Socket.IO client for Think Alike web-based frontend
 // Provides WebSocket connection management and game event handling
 
-import {io, Socket } from "socket.io-client"
+import io, { Socket } from "socket.io-client"
 import { CONFIG } from "./config"
 
 // --- Event Payload Interfaces ---
@@ -47,7 +47,7 @@ export interface GameSocket {
  * Creates and configures a Socket.IO client for the game.
  */
 export function createGameSocket(): GameSocket {
-  let socket: ReturnType<typeof io> | null = null
+  let socket: typeof Socket | null = null
   let isConnecting = false
 
   // Queue for event handlers registered before connection is established
