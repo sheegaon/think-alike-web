@@ -124,47 +124,63 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const socketRef = useRef<GameSocket | null>(null)
   const pendingRoomJoin = useRef<{ token: string; asSpectator: boolean } | null>(null)
 
+  // Use a ref to hold the latest state for use in callbacks without dependencies
+  const stateRef = useRef(state)
+  useEffect(() => {
+    stateRef.current = state
+  }, [state])
+
   const updateState = (updates: Partial<GameState>) => {
     setState((prev) => ({ ...prev, ...updates }))
   }
 
+  const revealChoice = useCallback(() => {
+    const { lastChoice, round } = stateRef.current
+    if (lastChoice && round) {
+      console.log("Auto-revealing choice.")
+      socketRef.current?.reveal(lastChoice.choice, lastChoice.nonce, round.round_key)
+    } else {
+      console.warn("Cannot reveal, lastChoice or round is missing.")
+    }
+  }, [])
+
   const leaveRoom = useCallback(async (atRoundEnd: boolean = true) => {
-    if (!socketRef.current || !state.roomKey || !state.playerId) return
-    await rest.leaveRoom(state.roomKey, state.playerId, atRoundEnd)
-    socketRef.current.leaveRoom()
-    updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null, currentView: "Home", isSpectator: false })
-  }, [state.roomKey, state.playerId])
+    const { roomKey, playerId } = stateRef.current
+    if (!socketRef.current || !roomKey || !playerId) return
+    try {
+        await rest.leaveRoom(roomKey, playerId, atRoundEnd)
+        socketRef.current.leaveRoom()
+        updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null, currentView: "Home", isSpectator: false })
+    } catch (error) {
+        console.error("Failed to leave room:", error)
+        updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null, currentView: "Home", isSpectator: false, error: "Failed to leave the room on the server." })
+    }
+  }, [])
 
-  const connectSocket = useCallback(() => {
-    if (socketRef.current) return
-
+  // Effect to manage the socket connection lifecycle. Runs only once.
+  useEffect(() => {
+    console.log("GameProvider effect running to establish socket connection. This should run only once.")
     const socket = createGameSocket()
     socketRef.current = socket
 
     socket.on("connect", () => {
-      console.log("Socket connected")
+      console.log("Socket connected.")
       updateState({ isConnected: true })
-      if (state.playerId) {
-        socket.joinPlayer(state.playerId)
-      }
     })
 
     socket.on("disconnect", () => {
-      console.log("Socket disconnected")
+      console.log("Socket disconnected.")
       setState(prev => {
-        const updates: Partial<GameState> = {
-          isConnected: false,
-          inRoom: false,
-          gamePhase: null,
-          roomKey: null,
-          isPlayerJoined: false,
-        }
+        const updates: Partial<GameState> = { isConnected: false }
         if (prev.inRoom) {
           updates.error = "Connection to the server was lost."
+          updates.inRoom = false
+          updates.gamePhase = null
+          updates.roomKey = null
+          updates.isPlayerJoined = false
         }
         return { ...prev, ...updates }
       })
-      socketRef.current = null
     })
 
     socket.on("player_joined_game", (data) => {
@@ -214,8 +230,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
     })
 
     socket.on("request_reveal", () => {
-      console.log("Reveal requested")
+      console.log("Reveal requested, triggering auto-reveal.")
       updateState({ gamePhase: "REVEAL" })
+      revealChoice()
     })
 
     socket.on("round_results", (data) => {
@@ -225,7 +242,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     socket.on("next_round_info", (data) => {
       console.log("Next round info:", data)
-      if (state.endOfRoundAction === "leave") {
+      if (stateRef.current.endOfRoundAction === "leave") {
         void leaveRoom()
       } else {
         updateState({ gamePhase: "WAITING", round: null, results: null })
@@ -247,10 +264,23 @@ export function GameProvider({ children }: { children: ReactNode }) {
       updateState({ error: data.message || "An unknown game error occurred", isLoading: false })
     })
 
-    if (!socket.isConnected()) {
-        socket.connect();
+    socket.connect()
+
+    return () => {
+      console.log("GameProvider effect cleanup. This should only happen on app unmount.")
+      socket.disconnect()
+      socketRef.current = null
     }
-  }, [state.playerId, state.endOfRoundAction, leaveRoom])
+  }, [leaveRoom, revealChoice])
+
+  // Effect to join the player once playerId is available and socket is connected
+  useEffect(() => {
+    if (state.playerId && state.isConnected && socketRef.current && !state.isPlayerJoined) {
+      console.log(`PlayerId ${state.playerId} and connection ready. Emitting join_player.`)
+      socketRef.current.joinPlayer(state.playerId)
+    }
+  }, [state.playerId, state.isConnected, state.isPlayerJoined])
+
 
   // --- CORE ACTIONS ---
 
@@ -263,7 +293,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     try {
       const player = await rest.createOrGetPlayer(username)
       updateState({ playerId: player.id, username: player.username, balance: player.balance })
-      connectSocket()
     } catch (err: any) {
       updateState({ error: err.message })
       throw err
@@ -287,15 +316,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
         lastStake: res.stake, 
         lastTier: res.tier,
         balance: res.new_balance,
-        isLoading: false, // Keep inRoom true
+        isLoading: false,
       })
       
       pendingRoomJoin.current = { token: res.room_token, asSpectator }
 
       if (socketRef.current && state.isConnected && state.isPlayerJoined) {
         socketRef.current.joinRoom(res.room_token, asSpectator)
-      } else {
-        connectSocket()
       }
 
     } catch (err: any) {
@@ -310,7 +337,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
     updateState({ isLoading: true, error: null, inRoom: true, gamePhase: "WAITING", isSpectator: false })
 
     try {
-      const res = await rest.quickJoinRoom(state.playerId, tier)
+      const tierToSend = tier === "ANY" ? null : tier
+      const res = await rest.quickJoinRoom(state.playerId, tierToSend)
       updateState({ 
         roomKey: res.room_key, 
         stake: res.stake, 
@@ -318,15 +346,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
         lastStake: res.stake, 
         lastTier: res.tier,
         balance: res.new_balance,
-        isLoading: false, // Keep inRoom true
+        isLoading: false,
       })
       
       pendingRoomJoin.current = { token: res.room_token, asSpectator: false }
 
       if (socketRef.current && state.isConnected && state.isPlayerJoined) {
         socketRef.current.joinRoom(res.room_token, false)
-      } else {
-        connectSocket()
       }
 
     } catch (err: any) {
@@ -349,15 +375,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     updateState({ lastChoice: { choice, nonce } })
     const hash = await generateCommitHash(state.playerId, state.round.round_key, choice, nonce)
     socketRef.current.commit(hash)
-  }
-
-  const revealChoice = () => {
-    if (state.lastChoice && state.round) {
-      console.log("Revealing choice now");
-      socketRef.current?.reveal(state.lastChoice.choice, state.lastChoice.nonce, state.round.round_key)
-    } else {
-      console.error("Cannot reveal, lastChoice or round is missing");
-    }
   }
 
   const setEndOfRoundAction = (action: EndOfRoundAction) => {
@@ -384,18 +401,16 @@ export function GameProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = useCallback(async () => {
-    if (state.inRoom) {
+    const { inRoom } = stateRef.current
+    if (inRoom) {
       try {
-        // Pass false to leave immediately, not at the end of the round
         await leaveRoom(false)
       } catch (error) {
         console.error("Error leaving room on logout:", error)
       }
     }
-    socketRef.current?.disconnect()
-    socketRef.current = null
     setState(initialState)
-  }, [state.inRoom, leaveRoom])
+  }, [leaveRoom])
 
   const clearError = () => updateState({ error: null })
 
