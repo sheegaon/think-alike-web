@@ -5,16 +5,16 @@ import { GameProvider } from "./context/GameContext"
 import "./App.css"
 
 // Import all screens
-import Login from "./components/Login"
-import Home from "./components/Home"
-import Lobby from "./components/Lobby"
-import Room from "./components/WaitingRoom"
-import RoundSelect from "./components/RoundSelect"
-import RoundReveal from "./components/RoundReveal"
-import Spectator from "./components/Spectator"
-import Leaderboard from "./components/Leaderboard"
-import Rewards from "./components/Rewards"
-import Settings from "./components/Settings"
+import Login from "@/components/Login"
+import Home from "@/components/Home"
+import Lobby from "@/components/Lobby"
+import WaitingRoom from "@/components/WaitingRoom"
+import RoundSelect from "@/components/RoundSelect"
+import RoundReveal from "@/components/RoundReveal"
+import Spectator from "@/components/Spectator"
+import Leaderboard from "@/components/Leaderboard"
+import Rewards from "@/components/Rewards"
+import Settings from "@/components/Settings"
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState("Login")
@@ -35,7 +35,7 @@ function App() {
       case "Lobby":
         return <Lobby {...screenProps} />
       case "WaitingRoom":
-        return <Room {...screenProps} />
+        return <WaitingRoom {...screenProps} />
       case "RoundSelect":
         return <RoundSelect {...screenProps} />
       case "RoundReveal":

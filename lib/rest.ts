@@ -205,7 +205,7 @@ export async function createOrGetPlayer(username: string): Promise<PlayerRespons
   try {
     return await getPlayerByUsername(username)
   } catch (error: any) {
-    if (error.message.includes("Not Found")) {
+    if (error.message.toLowerCase().includes("not found")) {
       return await createPlayer(username)
     }
     throw error

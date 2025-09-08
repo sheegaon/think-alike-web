@@ -71,74 +71,6 @@ export const GameProvider = ({ children }) => {
     }))
   }
 
-  // Mock data generators
-  const generateMockPlayers = (count = 4) => {
-    const names = [
-      "Alex",
-      "Sam",
-      "Jordan",
-      "Casey",
-      "Riley",
-      "Avery",
-      "Quinn",
-      "Blake",
-      "Drew",
-      "Sage",
-      "Rowan",
-      "Finley",
-    ]
-    return Array.from({ length: count }, (_, i) => ({
-      id: i + 1,
-      name: names[i % names.length] + (i > 11 ? i - 11 : ""),
-      tokens: Math.floor(Math.random() * 2000) + 500,
-      rating: Math.floor(Math.random() * 800) + 1000,
-    }))
-  }
-
-  const generateMockRound = () => {
-    const adjectives = ["Mysterious", "Bright", "Ancient", "Smooth", "Powerful", "Gentle", "Wild", "Elegant"]
-    const nouns = [
-      "Castle",
-      "Ocean",
-      "Cat",
-      "Phone",
-      "Book",
-      "Mountain",
-      "Clock",
-      "Tree",
-      "Fire",
-      "Mirror",
-      "Key",
-      "Star",
-      "Bridge",
-      "Flower",
-      "Dragon",
-      "Cloud",
-      "Diamond",
-      "River",
-      "Sword",
-      "Moon",
-    ]
-
-    const shuffledNouns = [...nouns].sort(() => Math.random() - 0.5).slice(0, 7)
-    const randomAdjective = adjectives[Math.floor(Math.random() * adjectives.length)]
-
-    return {
-      adjective: randomAdjective,
-      nouns: shuffledNouns,
-      timeLeft: stake === 50 ? 45 : 30, // Casual vs Competitive timing
-      phase: "selecting",
-      playersLockedIn: 0,
-      results: [],
-    }
-  }
-
-  // Initialize mock data
-  useEffect(() => {
-    setPlayers(generateMockPlayers(Math.floor(Math.random() * 8) + 4))
-    setSpectators(generateMockPlayers(Math.floor(Math.random() * 3)))
-  }, [])
-
   const value = {
     // State
     stake,
@@ -179,8 +111,6 @@ export const GameProvider = ({ children }) => {
 
     // Actions
     setQuickStake,
-    generateMockPlayers,
-    generateMockRound,
   }
 
   return <GameContext.Provider value={value}>{children}</GameContext.Provider>

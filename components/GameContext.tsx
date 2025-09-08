@@ -66,7 +66,7 @@ interface GameContextType extends GameState {
   register: (username: string) => Promise<void>
   quickJoin: (tier: string) => Promise<void>
   joinRoom: (roomKey: string, asSpectator: boolean) => Promise<void>
-  leaveRoom: () => Promise<void>
+  leaveRoom: (atRoundEnd?: boolean) => Promise<void>
   commitChoice: (choice: number) => Promise<void>
   revealChoice: () => void
   setEndOfRoundAction: (action: EndOfRoundAction) => void
@@ -75,7 +75,7 @@ interface GameContextType extends GameState {
   toggleQueue: (wantsToJoin: boolean) => void
   updateBalance: (newBalance: number) => void
   updateSettings: (newSettings: Partial<GameSettings>) => void
-  logout: () => void
+  logout: () => Promise<void>
   clearError: () => void
 }
 
@@ -128,6 +128,13 @@ export function GameProvider({ children }: { children: ReactNode }) {
     setState((prev) => ({ ...prev, ...updates }))
   }
 
+  const leaveRoom = useCallback(async (atRoundEnd: boolean = true) => {
+    if (!socketRef.current || !state.roomKey || !state.playerId) return
+    await rest.leaveRoom(state.roomKey, state.playerId, atRoundEnd)
+    socketRef.current.leaveRoom()
+    updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null, currentView: "Home", isSpectator: false })
+  }, [state.roomKey, state.playerId])
+
   const connectSocket = useCallback(() => {
     if (socketRef.current) return
 
@@ -144,7 +151,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
     socket.on("disconnect", () => {
       console.log("Socket disconnected")
-      updateState({ isConnected: false, inRoom: false, gamePhase: null, roomKey: null, isPlayerJoined: false })
+      setState(prev => {
+        const updates: Partial<GameState> = {
+          isConnected: false,
+          inRoom: false,
+          gamePhase: null,
+          roomKey: null,
+          isPlayerJoined: false,
+        }
+        if (prev.inRoom) {
+          updates.error = "Connection to the server was lost."
+        }
+        return { ...prev, ...updates }
+      })
+      socketRef.current = null
     })
 
     socket.on("player_joined_game", (data) => {
@@ -152,7 +172,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
       updateState({ isPlayerJoined: true, balance: data.balance })
       if (pendingRoomJoin.current) {
         socket.joinRoom(pendingRoomJoin.current.token, pendingRoomJoin.current.asSpectator)
-        pendingRoomJoin.current = null
       }
     })
 
@@ -166,8 +185,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
         spectators: data.spectators || 0,
         gamePhase: data.state.toUpperCase() as GamePhase,
         isLoading: false,
-        // minPlayers can be set here if provided by the backend in the future
       })
+      pendingRoomJoin.current = null
     })
 
     socket.on("player_joined_room", (data) => {
@@ -231,14 +250,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     if (!socket.isConnected()) {
         socket.connect();
     }
-  }, [state.playerId, state.endOfRoundAction])
-
-  const leaveRoom = useCallback(async () => {
-    if (!socketRef.current || !state.roomKey || !state.playerId) return
-    await rest.leaveRoom(state.roomKey, state.playerId)
-    socketRef.current.leaveRoom()
-    updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null, currentView: "Home", isSpectator: false })
-  }, [state.roomKey, state.playerId])
+  }, [state.playerId, state.endOfRoundAction, leaveRoom])
 
   // --- CORE ACTIONS ---
 
@@ -251,6 +263,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
     try {
       const player = await rest.createOrGetPlayer(username)
       updateState({ playerId: player.id, username: player.username, balance: player.balance })
+      connectSocket()
     } catch (err: any) {
       updateState({ error: err.message })
       throw err
@@ -262,7 +275,8 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const joinRoom = async (roomKey: string, asSpectator: boolean) => {
     if (state.isLoading) return
     if (!state.playerId) return updateState({ error: "Player not registered." })
-    updateState({ isLoading: true, error: null })
+    
+    updateState({ isLoading: true, error: null, inRoom: true, gamePhase: "WAITING", isSpectator: asSpectator })
 
     try {
       const res = await rest.joinSpecificRoom(roomKey, state.playerId, asSpectator)
@@ -272,22 +286,28 @@ export function GameProvider({ children }: { children: ReactNode }) {
         entryFee: res.entry_fee, 
         lastStake: res.stake, 
         lastTier: res.tier,
-        balance: res.new_balance
+        balance: res.new_balance,
+        isLoading: false, // Keep inRoom true
       })
       
       pendingRoomJoin.current = { token: res.room_token, asSpectator }
 
-      connectSocket()
+      if (socketRef.current && state.isConnected && state.isPlayerJoined) {
+        socketRef.current.joinRoom(res.room_token, asSpectator)
+      } else {
+        connectSocket()
+      }
 
     } catch (err: any) {
-      updateState({ error: err.message, isLoading: false })
+      updateState({ error: err.message, isLoading: false, inRoom: false, gamePhase: null })
     }
   }
 
   const quickJoin = async (tier: string) => {
     if (state.isLoading) return
     if (!state.playerId) return updateState({ error: "Player not registered." })
-    updateState({ isLoading: true, error: null })
+    
+    updateState({ isLoading: true, error: null, inRoom: true, gamePhase: "WAITING", isSpectator: false })
 
     try {
       const res = await rest.quickJoinRoom(state.playerId, tier)
@@ -297,15 +317,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
         entryFee: res.entry_fee, 
         lastStake: res.stake, 
         lastTier: res.tier,
-        balance: res.new_balance
+        balance: res.new_balance,
+        isLoading: false, // Keep inRoom true
       })
       
       pendingRoomJoin.current = { token: res.room_token, asSpectator: false }
 
-      connectSocket()
+      if (socketRef.current && state.isConnected && state.isPlayerJoined) {
+        socketRef.current.joinRoom(res.room_token, false)
+      } else {
+        connectSocket()
+      }
 
     } catch (err: any) {
-      updateState({ error: err.message, isLoading: false })
+      updateState({ error: err.message, isLoading: false, inRoom: false, gamePhase: null })
     }
   }
 
@@ -358,11 +383,19 @@ export function GameProvider({ children }: { children: ReactNode }) {
     updateState({ settings: { ...state.settings, ...newSettings } })
   }
 
-  const logout = () => {
+  const logout = useCallback(async () => {
+    if (state.inRoom) {
+      try {
+        // Pass false to leave immediately, not at the end of the round
+        await leaveRoom(false)
+      } catch (error) {
+        console.error("Error leaving room on logout:", error)
+      }
+    }
     socketRef.current?.disconnect()
     socketRef.current = null
     setState(initialState)
-  }
+  }, [state.inRoom, leaveRoom])
 
   const clearError = () => updateState({ error: null })
 

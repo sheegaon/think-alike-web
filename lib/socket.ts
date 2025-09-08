@@ -1,7 +1,7 @@
 // Socket.IO client for Think Alike web frontend
 // Provides WebSocket connection management and game event handling
 
-import { io, type Socket } from "socket.io-client"
+import { io, type Socket as SocketIO } from "socket.io-client"
 import { CONFIG } from "./config"
 
 // --- Event Payload Interfaces ---
@@ -48,7 +48,7 @@ export interface GameSocket {
  * This function encapsulates the socket instance and exposes a clean API.
  */
 export function createGameSocket(): GameSocket {
-  let socket: Socket | null = null
+  let socket: typeof SocketIO | null = null
 
   const connect = () => {
     if (socket?.connected) return
@@ -67,6 +67,13 @@ export function createGameSocket(): GameSocket {
       socket.on("connect_error", (err: Error) =>
         console.error("[WS] << connect_error: WebSocket connection error:", err)
       )
+
+      // Log all other events for comprehensive debugging
+      socket.onAny((event: string, ...args: any[]) => {
+        if (event !== 'connect' && event !== 'disconnect') {
+            console.log(`[WS] << ${event}`, args.length > 0 ? args[0] : "No Data");
+        }
+      });
     }
   }
 
@@ -78,13 +85,8 @@ export function createGameSocket(): GameSocket {
   const isConnected = () => socket?.connected ?? false
 
   const on = (event: string, handler: (...args: any[]) => void) => {
-    const loggingHandler = (...args: any[]) => {
-      if (process.env.NODE_ENV === "development") {
-        console.log(`[WS] << ${event}`, args.length > 0 ? args[0] : "No Data")
-      }
-      handler(...args)
-    }
-    socket?.on(event, loggingHandler)
+    // Logging is now handled by the onAny listener
+    socket?.on(event, handler)
   }
 
   const emit = (event: string, data?: object) => {

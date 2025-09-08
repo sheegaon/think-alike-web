@@ -60,7 +60,7 @@ export default function Home() {
   }
 
   const handleLogout = () => {
-    game.logout()
+    void game.logout()
   }
 
   return (
@@ -78,7 +78,7 @@ export default function Home() {
             Show All Available Rooms
           </Button>
 
-          {game.lastStake && game.lastTier && (
+          {!game.isLoading && game.lastStake && game.lastTier && (
             <Button size="lg" variant="outline" onClick={() => handleQuickJoin(game.lastTier!)}>
               Quick Rejoin ({game.lastStake} coins)
             </Button>

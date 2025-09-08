@@ -6,14 +6,21 @@ import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
 
+const ALL_TIERS = [
+  { name: "Casual", tier: "CASUAL" },
+  { name: "Competitive", tier: "COMPETITIVE" },
+  { name: "High Stakes", tier: "HIGH_STAKES" },
+]
+
 export default function WaitingRoom() {
   const game = useGame()
 
-  const quickJoinOptions = [
-    { name: "Any", tier: "ANY" },
-    { name: "Casual", tier: "CASUAL" },
-    { name: "Competitive", tier: "COMPETITIVE" },
-  ]
+  // Filter out the current tier to show other options
+  const otherTiers = ALL_TIERS.filter(
+    (option) => option.tier.toLowerCase() !== game.tier?.toLowerCase()
+  )
+
+  const quickJoinOptions = [{ name: "Any", tier: "ANY" }, ...otherTiers]
 
   const rules = [
     "Everyone is dealt the same random set of an adjective and 7 nouns.",
@@ -52,7 +59,7 @@ export default function WaitingRoom() {
         </div>
 
         <Frame>
-          <SectionHeader title="Rules (MVP)" />
+          <SectionHeader title="Rules" />
           <ul className="space-y-2">
             {rules.map((rule, index) => (
               <li key={index} className="flex items-start gap-2">
@@ -69,8 +76,6 @@ export default function WaitingRoom() {
             <Button variant="outline" onClick={() => game.setCurrentView("Lobby")}>
               Lobby
             </Button>
-            {/* The server starts the round automatically when enough players join. */}
-            <Button disabled>Start Round</Button>
           </div>
         </div>
       </div>
