@@ -7,7 +7,7 @@ import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
 import { Icons } from "./shared/icons"
-import { getRooms } from "@/lib/rest"
+import { getRooms, RoomSummaryItem } from "@/lib/rest"
 
 interface QuickJoinOption {
   name: string
@@ -36,20 +36,12 @@ export default function Home() {
     setError(null)
     try {
       const response = await getRooms()
-      const tiers: Record<string, { stake: number; players: number; tier: string }> = {}
-
-      response.rooms.forEach((room) => {
-        const tierName = formatTierName(room.tier)
-        if (!tiers[tierName]) {
-          tiers[tierName] = { stake: room.stake, players: 0, tier: room.tier }
-        }
-        tiers[tierName].players += room.player_count
-      })
-
-      const options = Object.entries(tiers).map(([name, data]) => ({
-        name,
-        ...data,
-      }))
+      const options = response.summary.map((item: RoomSummaryItem) => ({
+        name: formatTierName(item.tier),
+        stake: item.stake,
+        players: item.player_count,
+        tier: item.tier,
+      }));
 
       setQuickJoinOptions(options)
     } catch (err: any) {

@@ -29,9 +29,17 @@ export default function Lobby() {
     setIsLoading(true)
     setError(null)
     try {
-      const tier = filter === "All" ? undefined : filter.toLowerCase().replace(/ /g, "_")
-      const response = await getRooms(tier)
-      setAllRooms(response.rooms)
+      if (filter === "All") {
+        const summary = await getRooms();
+        const roomPromises = summary.summary.map((tierSummary) => getRooms(tierSummary.tier));
+        const roomLists = await Promise.all(roomPromises);
+        const allRooms = roomLists.flatMap((list) => list.rooms);
+        setAllRooms(allRooms);
+      } else {
+        const tier = filter.toLowerCase().replace(/ /g, "_");
+        const response = await getRooms(tier);
+        setAllRooms(response.rooms);
+      }
     } catch (err: any) {
       setError(err.message)
     } finally {

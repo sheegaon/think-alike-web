@@ -5,7 +5,7 @@
   "ENDPOINTS": {
     "health": {
       "method": "GET",
-      "path": "/health"
+      "path": "/game/health"
     },
     "players_create": {
       "method": "POST",
@@ -34,6 +34,10 @@
     "rooms_list": {
       "method": "GET",
       "path": "/rooms"
+    },
+    "rooms_summary": {
+      "method": "GET",
+      "path": "/rooms/summary"
     },
     "rooms_details": {
       "method": "GET",
@@ -65,7 +69,7 @@
     },
     "leaderboard": {
       "method": "GET",
-      "path": "/leaderboard"
+      "path": "/game/leaderboard"
     }
   }
 }

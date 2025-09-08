@@ -97,6 +97,17 @@ export interface RoomListResponse {
   total: number
 }
 
+export interface RoomSummaryItem {
+  tier: string;
+  player_count: number;
+  stake: number;
+  entry_fee: number;
+}
+
+export interface RoomSummaryResponse {
+  summary: RoomSummaryItem[];
+}
+
 export interface RoomJoinResponse {
   err_code: number
   room_token: string
@@ -201,9 +212,15 @@ export async function createOrGetPlayer(username: string): Promise<PlayerRespons
   }
 }
 
-export async function getRooms(tier?: string): Promise<RoomListResponse> {
-  const params = tier ? { tier } : undefined
-  return call("rooms_list", { params })
+export function getRooms(tier: string): Promise<RoomListResponse>;
+export function getRooms(): Promise<RoomSummaryResponse>;
+export async function getRooms(tier?: string): Promise<RoomListResponse | RoomSummaryResponse> {
+  if (tier) {
+    const params = { tier };
+    return call("rooms_list", { params });
+  } else {
+    return call("rooms_summary", {});
+  }
 }
 
 export async function quickJoinRoom(
