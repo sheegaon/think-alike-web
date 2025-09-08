@@ -4,7 +4,7 @@ import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import Frame from "./shared/Frame"
-import { useGame } from "./GameContext"
+import { useGame } from "./context/GameContext"
 
 interface LoginProps {
   onContinueAction: () => void

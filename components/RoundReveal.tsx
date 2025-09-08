@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { useGame } from "./GameContext"
+import { useGame } from "./context/GameContext"
 import Frame from "./shared/Frame"
 import StatusBar from "./shared/StatusBar"
 

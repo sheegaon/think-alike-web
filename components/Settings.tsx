@@ -2,7 +2,7 @@
 
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
-import { useGame, type GameSettings } from "./GameContext"
+import { useGame, type GameSettings } from "./context/GameContext"
 import Frame from "./shared/Frame"
 import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"

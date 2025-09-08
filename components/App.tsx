@@ -1,6 +1,6 @@
 "use client"
 
-import { useGame } from "./GameContext"
+import { useGame } from "./context/GameContext"
 import Login from "./Login"
 import Home from "./Home"
 import Lobby from "./Lobby"

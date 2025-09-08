@@ -6,7 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import WireCard from "./shared/WireCard"
 import ProgressBar from "./shared/ProgressBar"
 import StatusBar from "./shared/StatusBar"
-import { useGame } from "./GameContext"
+import { useGame } from "./context/GameContext"
 import { Icons } from "@/lib/icons"
 import Frame from "./shared/Frame"
 

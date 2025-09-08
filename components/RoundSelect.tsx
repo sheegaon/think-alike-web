@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { useGame, type EndOfRoundAction } from "./GameContext"
+import { useGame, type EndOfRoundAction } from "./context/GameContext"
 import WireCard from "./shared/WireCard"
 import ProgressBar from "./shared/ProgressBar"
 import StatusBar from "./shared/StatusBar"

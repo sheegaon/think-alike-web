@@ -4,7 +4,7 @@ import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import StatusBar from "./shared/StatusBar"
 import { Icons } from "@/lib/icons"
-import { useGame } from "./GameContext"
+import { useGame } from "./context/GameContext"
 import { getLeaderboard, type LeaderboardEntry } from "@/lib/rest"
 
 export default function Leaderboard() {

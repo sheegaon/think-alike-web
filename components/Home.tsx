@@ -7,7 +7,7 @@ import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
 import { Icons } from "@/lib/icons"
 import { getRooms, RoomSummaryItem } from "@/lib/rest"
-import { useGame } from "./GameContext"
+import { useGame } from "./context/GameContext"
 
 
 interface QuickJoinOption {

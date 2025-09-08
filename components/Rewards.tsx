@@ -8,7 +8,7 @@ import Pill from "./shared/Pill"
 import StatusBar from "./shared/StatusBar"
 import { useState, useEffect, useCallback } from "react"
 import { Icons } from "@/lib/icons"
-import { useGame } from "./GameContext"
+import { useGame } from "./context/GameContext"
 import { getPlayerQuests, claimQuestReward, type Quest } from "@/lib/rest"
 
 export default function Rewards() {

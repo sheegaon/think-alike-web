@@ -1,20 +1,20 @@
 "use client"
 
 import { useState } from "react"
-import { GameProvider } from "../components/GameContext"
+import { GameProvider } from "../components/context"
 import "./App.css"
 
 // Import all screens
-import Login from "@/components/Login"
-import Home from "@/components/Home"
-import Lobby from "@/components/Lobby"
-import WaitingRoom from "@/components/WaitingRoom"
-import RoundSelect from "@/components/RoundSelect"
-import RoundReveal from "@/components/RoundReveal"
-import Spectator from "@/components/Spectator"
-import Leaderboard from "@/components/Leaderboard"
-import Rewards from "@/components/Rewards"
-import Settings from "@/components/Settings"
+import Login from "../components/Login"
+import Home from "../components/Home"
+import Lobby from "../components/Lobby"
+import WaitingRoom from "../components/WaitingRoom"
+import RoundSelect from "../components/RoundSelect"
+import RoundReveal from "../components/RoundReveal"
+import Spectator from "../components/Spectator"
+import Leaderboard from "../components/Leaderboard"
+import Rewards from "../components/Rewards"
+import Settings from "../components/Settings"
 
 function App() {
   const [currentScreen, setCurrentScreen] = useState("Login")
