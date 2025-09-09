@@ -1,5 +1,6 @@
-import type { ReactNode } from "react"
-import { cn } from "@/lib/utils"
+"use client"
+
+import { ReactNode } from "react"
 
 interface FrameProps {
   children: ReactNode
@@ -7,5 +8,9 @@ interface FrameProps {
 }
 
 export default function Frame({ children, className }: FrameProps) {
-  return <div className={cn("bg-card border rounded-lg p-4", className)}>{children}</div>
+  return (
+    <div className={`bg-card border rounded-lg p-4 ${className || ''}`}>
+      {children}
+    </div>
+  )
 }

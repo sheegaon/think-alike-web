@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
-import { useGame } from "./GameContext"
+import { useGame } from "@/components/context"
 import Frame from "./shared/Frame"
 import StatusBar from "./shared/StatusBar"
 
@@ -21,18 +21,18 @@ export default function RoundReveal() {
   useEffect(() => {
     // This effect only runs when results are available (RESULTS phase)
     if (game.results) {
-      const { nouns, selection_counts, your_choice } = game.results
-      const totalPicks = selection_counts.reduce((sum, count) => sum + count, 0)
+      const { nouns, selectionCounts, yourChoice } = game.results
+      const totalPicks = selectionCounts.reduce((sum: number, count: number) => sum + count, 0)
 
-      const combinedResults = nouns.map((noun, index) => ({
+      const combinedResults = nouns.map((noun: string, index: number) => ({
         choice: noun,
-        count: selection_counts[index],
-        percentage: totalPicks > 0 ? (selection_counts[index] / totalPicks) * 100 : 0,
-        isYourChoice: index === your_choice,
+        count: selectionCounts[index],
+        percentage: totalPicks > 0 ? (selectionCounts[index] / totalPicks) * 100 : 0,
+        isYourChoice: index === yourChoice,
       }))
 
       // Sort by count (popularity) in ascending order for the reveal
-      combinedResults.sort((a, b) => a.count - b.count)
+      combinedResults.sort((a: { count: number }, b: { count: number }) => a.count - b.count)
 
       setSortedResults(combinedResults)
       setRevealIndex(0) // Reset for staggered reveal
@@ -54,17 +54,13 @@ export default function RoundReveal() {
   }, [game.results])
 
   const handleLeave = () => {
-    void game.leaveRoom()
-  }
-
-  const handleReveal = () => {
-    game.revealChoice()
+    void game.actions.leaveRoom()
   }
 
   // --- Conditional Rendering based on Game Phase ---
 
-  // 1. REVEAL Phase: Before results are in
-  if (game.gamePhase === 'REVEAL' && !game.results) {
+  // 1. REVEAL Phase: Before results are in - auto-reveal handled by gameActions
+  if (game.round?.phase === 'revealing' && !game.results) {
     return (
       <div className="min-h-screen flex flex-col">
         <StatusBar />
@@ -72,11 +68,14 @@ export default function RoundReveal() {
           <Frame className="w-full max-w-md text-center space-y-4">
             <h1 className="text-2xl font-bold">Reveal Phase</h1>
             <p className="text-muted-foreground">
-              The selection period is over. It's time to reveal your choice to the group.
+              The selection period is over. Revealing choices automatically...
             </p>
-            <Button onClick={handleReveal} size="lg">
-              Reveal Your Choice
-            </Button>
+            {game.commitState.hasCommitted && !game.commitState.hasRevealed && (
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                Revealing your choice...
+              </div>
+            )}
           </Frame>
         </div>
       </div>
@@ -84,8 +83,22 @@ export default function RoundReveal() {
   }
 
   // 2. RESULTS Phase: Results are available
-  if (game.gamePhase === 'RESULTS' && game.results) {
-    const { payout } = game.results
+  if (game.round?.resultsRevealed || game.results) {
+    if (!game.results) {
+      return (
+        <div className="min-h-screen flex flex-col">
+          <StatusBar />
+          <div className="flex-grow flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p>Loading results...</p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
+    const { winnings } = game.results
 
     const getButtonText = () => {
       switch (game.endOfRoundAction) {
@@ -127,7 +140,7 @@ export default function RoundReveal() {
                 <h3 className="font-semibold">Your Round Summary</h3>
                 <div className="text-sm space-y-1">
                   <div>
-                    Your prize share: <span className="font-medium">{payout.toFixed(2)} coins</span>
+                    Your prize share: <span className="font-medium">{winnings.toFixed(2)} coins</span>
                   </div>
                 </div>
                 <div className="flex justify-center gap-2 pt-4">

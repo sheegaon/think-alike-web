@@ -6,8 +6,8 @@ import { Checkbox } from "@/components/ui/checkbox"
 import WireCard from "./shared/WireCard"
 import ProgressBar from "./shared/ProgressBar"
 import StatusBar from "./shared/StatusBar"
-import { useGame } from "./GameContext"
-import { Icons } from "./shared/icons"
+import { useGame } from "@/components/context"
+import { Icons } from "@/lib/icons"
 import Frame from "./shared/Frame"
 
 export default function Spectator() {
@@ -15,10 +15,10 @@ export default function Spectator() {
   const [timeLeft, setTimeLeft] = useState(0)
 
   useEffect(() => {
-    if (game.round?.selection_deadline) {
-      const deadline = new Date(game.round.selection_deadline).getTime()
+    if (game.round?.selectionDeadline) {
+      const deadline = game.round.selectionDeadline
       const updateTimer = () => {
-        const now = new Date().getTime()
+        const now = Date.now()
         const remaining = Math.max(0, Math.round((deadline - now) / 1000))
         setTimeLeft(remaining)
       }
@@ -27,17 +27,17 @@ export default function Spectator() {
       const timerInterval = setInterval(updateTimer, 1000)
       return () => clearInterval(timerInterval)
     }
-  }, [game.round?.selection_deadline])
+  }, [game.round?.selectionDeadline])
 
   const handleQueueToggle = (wantsToJoin: boolean) => {
-    game.toggleQueue(wantsToJoin)
+    game.actions.toggleSpectatorQueue()
   }
 
   const totalTime = game.stake === 50 ? 45 : 30 // This should ideally come from the backend
   const progress = totalTime > 0 ? ((totalTime - timeLeft) / totalTime) * 100 : 0
 
   const renderGameView = () => {
-    if (!game.round) {
+    if (!game.round || !game.round.adjective) {
       return (
         <div className="text-center text-muted-foreground py-10">
           <p>Waiting for the next round to begin...</p>
@@ -52,7 +52,7 @@ export default function Spectator() {
           <div className="flex items-center justify-between text-sm">
             <span>Time: {timeLeft}s</span>
             <span>
-              Players Locked In: {game.commitsCount} / {game.players.length}
+              Players Locked In: {game.round.playersLockedIn} / {game.room?.currentPlayers || 0}
             </span>
           </div>
           <ProgressBar progress={progress} />
@@ -65,8 +65,8 @@ export default function Spectator() {
 
         {/* Noun cards (read-only, responsive grid) */}
         <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-          {game.round.nouns.map((noun) => (
-            <WireCard key={noun} text={noun} className="cursor-default opacity-75" />
+          {game.round.nouns.map((noun: string, index: number) => (
+            <WireCard key={`${noun}-${index}`} text={noun} className="cursor-default opacity-75" />
           ))}
         </div>
       </>
@@ -79,9 +79,9 @@ export default function Spectator() {
 
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Spectating: {game.tier}</h1>
-          <Button variant="outline" onClick={() => game.leaveRoom()}>
-            <Icons.Logout className="mr-2" />
+          <h1 className="text-xl font-bold">Spectating: {game.room?.tier}</h1>
+          <Button variant="outline" onClick={() => game.actions.leaveRoom()}>
+            <Icons.Logout />
             Leave
           </Button>
         </div>
@@ -91,14 +91,18 @@ export default function Spectator() {
         {/* Spectator options */}
         <Frame>
           <div className="flex items-center space-x-2">
-            <Checkbox id="queue-play" onCheckedChange={(checked) => handleQueueToggle(!!checked)} />
+            <Checkbox
+              id="queue-play"
+              checked={game.queueState.isInQueue}
+              onCheckedChange={(checked) => handleQueueToggle(!!checked)}
+            />
             <label htmlFor="queue-play" className="text-sm font-medium leading-none">
               Queue to play when a slot opens
             </label>
           </div>
-          {game.queuePosition !== null && (
+          {game.queueState.position > 0 && (
             <p className="text-sm text-muted-foreground mt-2">
-              You are position <span className="font-bold">{game.queuePosition}</span> in the queue.
+              You are position <span className="font-bold">{game.queueState.position}</span> in the queue.
             </p>
           )}
         </Frame>

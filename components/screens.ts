@@ -2,7 +2,7 @@ export type Screen =
   | "Login"
   | "Home"
   | "Lobby"
-  | "Room"
+  | "WaitingRoom"
   | "RoundSelect"
   | "RoundReveal"
   | "Spectator"

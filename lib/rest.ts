@@ -224,9 +224,9 @@ export async function getRooms(tier?: string): Promise<RoomListResponse | RoomSu
 }
 
 export async function quickJoinRoom(
-  player_id: number,
-  tier?: string,
-  as_spectator: boolean = false
+    player_id: number,
+    tier?: null | string,
+    as_spectator: boolean = false
 ): Promise<RoomQuickJoinResponse> {
   return call("rooms_quick_join", {
     body: { player_id, tier, as_spectator },

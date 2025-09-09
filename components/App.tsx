@@ -1,6 +1,6 @@
 "use client"
 
-import { useGame } from "./GameContext"
+import { useGame } from "@/components/context"
 import Login from "./Login"
 import Home from "./Home"
 import Lobby from "./Lobby"
@@ -20,42 +20,47 @@ const RenderScreen = () => {
   const game = useGame()
 
   // If the player is not logged in, always show the Login screen.
-  if (!game.playerId) {
+  if (!game.player.isAuthenticated) {
     return <Login onContinueAction={() => {}} />
   }
 
   // If the player is in a room, the game phase dictates the screen.
-  if (game.inRoom) {
+  if (game.isInRoom) {
     // If player is a spectator, show the Spectator screen.
-    if (game.isSpectator) {
+    if (game.player.isSpectator) {
       return <Spectator />
     }
 
-    switch (game.gamePhase) {
-      case "WAITING":
-        return <WaitingRoom />
-      case "SELECT":
-        return <RoundSelect />
-      case "REVEAL":
-      case "RESULTS":
-        return <RoundReveal />
-      // As a fallback, show the waiting room if the phase is null or unexpected.
-      default:
-        return <WaitingRoom />
+    // Determine game phase from round state
+    if (game.round) {
+      switch (game.round.phase) {
+        case "waiting":
+          return <WaitingRoom />
+        case "selecting":
+          return <RoundSelect />
+        case "revealing":
+        case "complete":
+          return <RoundReveal />
+        default:
+          return <WaitingRoom />
+      }
+    } else {
+      // No active round, show waiting room
+      return <WaitingRoom />
     }
   }
 
   // If the player is not in a room, the current view determines the screen.
   switch (game.currentView) {
-    case "Home":
+    case "home":
       return <Home />
-    case "Lobby":
+    case "lobby":
       return <Lobby />
-    case "Leaderboard":
+    case "leaderboard":
       return <Leaderboard />
-    case "Rewards":
+    case "rewards":
       return <Rewards />
-    case "Settings":
+    case "settings":
       return <Settings />
     default:
       return <Home />
