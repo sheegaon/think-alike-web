@@ -27,7 +27,7 @@ const RenderScreen = () => {
   // If the player is in a room, the game phase dictates the screen.
   if (game.isInRoom) {
     // If player is a spectator, show the Spectator screen.
-    if (game.room?.spectators && game.room.spectators > 0) {
+    if (game.player.isSpectator) {
       return <Spectator />
     }
 

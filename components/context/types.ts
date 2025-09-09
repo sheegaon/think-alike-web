@@ -20,6 +20,7 @@ export interface Player {
   rating: number;
   wins: number;
   isAuthenticated: boolean;
+  isSpectator: boolean;
 }
 
 export interface Room {
