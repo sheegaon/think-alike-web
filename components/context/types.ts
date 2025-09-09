@@ -156,6 +156,7 @@ export interface GameActions {
 
   // Game actions
   commitChoice: (choice: number) => Promise<void>;
+  sendEmote: (emote: string) => void;
 
   // Navigation
   setCurrentView: (view: Screen) => void;

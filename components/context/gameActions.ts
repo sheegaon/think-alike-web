@@ -443,7 +443,7 @@ export const createNotificationActions = ({ state, updateState }: GameActionsCon
 });
 
 // Socket Event Handlers - These handle incoming websocket events
-export const createSocketEventHandlers = ({ state, updateState }: GameActionsContext) => ({
+export const createSocketEventHandlers = ({ state, updateState, socket }: GameActionsContext) => ({
   // Connection events
   onConnect: (): void => {
     updateState({
