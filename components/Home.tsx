@@ -31,6 +31,9 @@ export default function Home() {
   const [quickJoinOptions, setQuickJoinOptions] = useState<QuickJoinOption[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [joiningTier, setJoiningTier] = useState<string | null>(null);
+
+  const isJoining = game.isLoading;
 
   const fetchQuickJoinData = useCallback(async () => {
     setIsLoading(true)
@@ -56,7 +59,16 @@ export default function Home() {
     void fetchQuickJoinData()
   }, [fetchQuickJoinData])
 
+  useEffect(() => {
+    if (!isJoining) {
+      setJoiningTier(null);
+    }
+  }, [isJoining]);
+
   const handleQuickJoin = (tier: string | null) => {
+    if (tier) {
+      setJoiningTier(tier);
+    }
     void game.actions.quickJoin(tier)
   }
 
@@ -75,27 +87,31 @@ export default function Home() {
         </div>
 
         <div className="grid gap-4 max-w-md mx-auto">
-          <Button size="lg" onClick={() => game.actions.setCurrentView("lobby")}>
+          <Button size="lg" onClick={() => game.actions.setCurrentView("lobby")} disabled={isJoining}>
             Show All Available Rooms
           </Button>
 
-          {!game.isLoading && game.lastStake && game.lastTier && (
-            <Button size="lg" variant="outline" onClick={() => handleQuickJoin(game.lastTier)}>
-              Quick Rejoin ({game.lastStake} coins)
+          {game.lastStake && game.lastTier && (
+            <Button size="lg" variant="outline" onClick={() => handleQuickJoin(game.lastTier)} disabled={isJoining}>
+              {isJoining && joiningTier === game.lastTier ? (
+                <><Icons.Spinner className="mr-2 h-4 w-4 animate-spin" /> Joining...</>
+              ) : (
+                `Quick Rejoin (${game.lastStake} coins)`
+              )}
             </Button>
           )}
 
           <div className="grid grid-cols-4 gap-2">
-            <Button variant="outline" className="bg-transparent" onClick={() => game.actions.setCurrentView("leaderboard")}>
+            <Button variant="outline" className="bg-transparent" onClick={() => game.actions.setCurrentView("leaderboard")} disabled={isJoining}>
               <Icons.Leaderboard />
             </Button>
-            <Button variant="outline" className="bg-transparent" onClick={() => game.actions.setCurrentView("rewards")}>
+            <Button variant="outline" className="bg-transparent" onClick={() => game.actions.setCurrentView("rewards")} disabled={isJoining}>
               <Icons.Rewards />
             </Button>
-            <Button variant="outline" className="bg-transparent" onClick={() => game.actions.setCurrentView("settings")}>
+            <Button variant="outline" className="bg-transparent" onClick={() => game.actions.setCurrentView("settings")} disabled={isJoining}>
               <Icons.Gear />
             </Button>
-            <Button variant="outline" className="bg-transparent" onClick={handleLogout}>
+            <Button variant="outline" className="bg-transparent" onClick={handleLogout} disabled={isJoining}>
               <Icons.Logout />
             </Button>
           </div>
