@@ -9,6 +9,7 @@ import SectionHeader from "./shared/SectionHeader"
 import StatusBar from "./shared/StatusBar"
 import { Icons } from "./shared/icons"
 import { getRooms, type RoomResponse } from "@/lib/rest"
+import { cn } from "@/lib/utils"
 
 // Helper function to format tier names for display
 const formatTierName = (tier: string) => {
@@ -24,6 +25,7 @@ export default function Lobby() {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>("All")
+  const [joiningRoomKey, setJoiningRoomKey] = useState<string | null>(null)
 
   const fetchRooms = useCallback(async () => {
     setIsLoading(true)
@@ -51,9 +53,20 @@ export default function Lobby() {
     void fetchRooms()
   }, [fetchRooms])
 
+  // Reset joiningRoomKey when the global join status is no longer 'joining'
+  useEffect(() => {
+    if (game.joinStatus !== 'joining') {
+      setJoiningRoomKey(null);
+    }
+  }, [game.joinStatus]);
+
   const handleJoin = (roomKey: string, asSpectator: boolean) => {
+    if (game.joinStatus === 'joining') return; // Prevent multiple clicks
+    setJoiningRoomKey(roomKey);
     void game.joinRoom(roomKey, asSpectator)
   }
+
+  const isJoining = game.joinStatus === 'joining';
 
   return (
     <div className="min-h-screen">
@@ -62,16 +75,16 @@ export default function Lobby() {
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">All Available Rooms</h1>
-          <Button variant="outline" onClick={() => game.setCurrentView("Home")}>
+          <Button variant="outline" onClick={() => game.setCurrentView("Home")} disabled={isJoining}>
             <Icons.Home />
           </Button>
         </div>
 
         <div className="flex gap-2 items-center">
-          <Button variant={filter === "All" ? "default" : "outline"} size="sm" onClick={() => setFilter("All")}>
+          <Button variant={filter === "All" ? "default" : "outline"} size="sm" onClick={() => setFilter("All")} disabled={isJoining}>
             All
           </Button>
-          <Select value={filter === "All" ? "" : filter} onValueChange={setFilter}>
+          <Select value={filter === "All" ? "" : filter} onValueChange={setFilter} disabled={isJoining}>
             <SelectTrigger className="w-40">
               <SelectValue placeholder="Filter by tier" />
             </SelectTrigger>
@@ -81,7 +94,7 @@ export default function Lobby() {
               <SelectItem value="High Stakes">High Stakes</SelectItem>
             </SelectContent>
           </Select>
-          <Button variant="outline" size="sm" onClick={fetchRooms} disabled={isLoading}>
+          <Button variant="outline" size="sm" onClick={fetchRooms} disabled={isLoading || isJoining}>
             <Icons.Refresh />
           </Button>
         </div>
@@ -96,29 +109,42 @@ export default function Lobby() {
             ) : allRooms.length === 0 ? (
               <div className="text-center text-muted-foreground">No rooms available.</div>
             ) : (
-              allRooms.map((room) => (
-                <div key={room.room_key} className="flex items-center justify-between p-3 border rounded-lg">
-                  <div>
-                    <div className="font-medium">{formatTierName(room.tier)}</div>
-                    <div className="text-sm text-muted-foreground">
-                      Stake: {room.stake} • Players: {room.player_count}/{room.max_players} • Entry fee:{" "}
-                      {room.entry_fee}
+              allRooms.map((room) => {
+                const isJoiningThisRoom = isJoining && joiningRoomKey === room.room_key;
+                return (
+                  <div key={room.room_key} className="flex items-center justify-between p-3 border rounded-lg">
+                    <div>
+                      <div className="font-medium">{formatTierName(room.tier)}</div>
+                      <div className="text-sm text-muted-foreground">
+                        Stake: {room.stake} • Players: {room.player_count}/{room.max_players} • Entry fee:{" "}
+                        {room.entry_fee}
+                      </div>
+                    </div>
+                    <div className="flex gap-2">
+                      {room.player_count >= room.max_players ? (
+                        <Button size="sm" variant="outline" onClick={() => handleJoin(room.room_key, true)} disabled={isJoining}>
+                          {isJoiningThisRoom ? (
+                            <><Icons.Spinner className="mr-2 h-4 w-4 animate-spin" /> Spectating...</>
+                          ) : (
+                            <><Icons.Eye className="mr-2 h-4 w-4" /> Spectate</>
+                          )}
+                        </Button>
+                      ) : (
+                        <Button size="sm" onClick={() => handleJoin(room.room_key, false)} disabled={isJoining}>
+                          {isJoiningThisRoom ? (
+                            <><Icons.Spinner className="mr-2 h-4 w-4 animate-spin" /> Joining...</>
+                          ) : (
+                            'Join'
+                          )}
+                        </Button>
+                      )}
                     </div>
                   </div>
-                  <div className="flex gap-2">
-                    {room.player_count >= room.max_players ? (
-                      <Button size="sm" variant="outline" onClick={() => handleJoin(room.room_key, true)}>
-                        <Icons.Eye />
-                        Spectate
-                      </Button>
-                    ) : (
-                      <Button size="sm" onClick={() => handleJoin(room.room_key, false)}>
-                        Join
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              ))
+                )
+              })
+            )}
+            {game.joinStatus === 'error' && game.error && (
+                <div className="text-center text-red-500 pt-2">Join failed: {game.error}</div>
             )}
           </div>
         </Frame>

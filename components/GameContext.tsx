@@ -20,6 +20,7 @@ export interface GameSettings {
 export type GamePhase = "WAITING" | "SELECT" | "REVEAL" | "RESULTS" | null
 export type EndOfRoundAction = "continue" | "sit_out" | "leave"
 export type AppView = "Home" | "Lobby" | "Leaderboard" | "Rewards" | "Settings"
+export type JoinStatus = "idle" | "joining" | "error" | "success"
 
 interface GameState {
   // Player State
@@ -58,6 +59,7 @@ interface GameState {
   isLoading: boolean
   error: string | null
   queuePosition: number | null
+  joinStatus: JoinStatus
 }
 
 interface GameContextType extends GameState {
@@ -113,6 +115,7 @@ const initialState: GameState = {
   isLoading: false,
   error: null,
   queuePosition: null,
+  joinStatus: "idle",
 }
 
 // --- CONTEXT ---
@@ -122,7 +125,6 @@ const GameContext = createContext<GameContextType | undefined>(undefined)
 export function GameProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<GameState>(initialState)
   const socketRef = useRef<GameSocket | null>(null)
-  const pendingRoomJoin = useRef<{ token: string; asSpectator: boolean } | null>(null)
 
   // Use a ref to hold the latest state for use in callbacks without dependencies
   const stateRef = useRef(state)
@@ -153,7 +155,7 @@ export function GameProvider({ children }: { children: ReactNode }) {
         updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null, currentView: "Home", isSpectator: false })
     } catch (error) {
         console.error("Failed to leave room:", error)
-        updateState({ inRoom: false, roomKey: null, gamePhase: null, round: null, results: null, currentView: "Home", isSpectator: false, error: "Failed to leave the room on the server." })
+        updateState({ error: "Failed to leave the room on the server." })
     }
   }, [])
 
@@ -186,23 +188,6 @@ export function GameProvider({ children }: { children: ReactNode }) {
     socket.on("player_joined_game", (data) => {
       console.log("Player joined game:", data)
       updateState({ isPlayerJoined: true, balance: data.balance })
-      if (pendingRoomJoin.current) {
-        socket.joinRoom(pendingRoomJoin.current.token, pendingRoomJoin.current.asSpectator)
-      }
-    })
-
-    socket.on("room_joined", (data) => {
-      console.log("Room joined:", data)
-      updateState({
-        inRoom: true,
-        isSpectator: pendingRoomJoin.current?.asSpectator ?? false,
-        tier: data.tier,
-        players: data.players || [],
-        spectators: data.spectators || 0,
-        gamePhase: data.state.toUpperCase() as GamePhase,
-        isLoading: false,
-      })
-      pendingRoomJoin.current = null
     })
 
     socket.on("player_joined_room", (data) => {
@@ -301,63 +286,100 @@ export function GameProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const joinRoom = async (roomKey: string, asSpectator: boolean) => {
-    if (state.isLoading) return
-    if (!state.playerId) return updateState({ error: "Player not registered." })
-    
-    updateState({ isLoading: true, error: null, inRoom: true, gamePhase: "WAITING", isSpectator: asSpectator })
+  const joinRoomFlow = useCallback(async (joinFn: () => Promise<rest.RoomJoinResponse | rest.RoomQuickJoinResponse>, asSpectator: boolean) => {
+    // Guard clause: Ensure player is fully connected and ready to join a room.
+    if (!stateRef.current.isPlayerJoined) {
+        updateState({ error: "Player is not fully connected to the game service yet. Please try again in a moment.", joinStatus: 'error' });
+        setTimeout(() => updateState({ joinStatus: 'idle' }), 2000);
+        return;
+    }
+
+    updateState({ isLoading: true, joinStatus: 'joining', error: null });
 
     try {
-      const res = await rest.joinSpecificRoom(roomKey, state.playerId, asSpectator)
-      updateState({ 
-        roomKey: res.room_key, 
-        stake: res.stake, 
-        entryFee: res.entry_fee, 
-        lastStake: res.stake, 
-        lastTier: res.tier,
-        balance: res.new_balance,
-        isLoading: false,
-      })
-      
-      pendingRoomJoin.current = { token: res.room_token, asSpectator }
+        // Step 1: Call the REST API to get a room token.
+        const res = await joinFn();
 
-      if (socketRef.current && state.isConnected && state.isPlayerJoined) {
-        socketRef.current.joinRoom(res.room_token, asSpectator)
-      }
+        // Step 2: Set up a promise to wait for the 'room_joined' event from the socket.
+        const roomJoinedPromise = new Promise<any>((resolve, reject) => {
+            const timeout = setTimeout(() => {
+                socketRef.current?.off('room_joined', successHandler);
+                socketRef.current?.off('game_error', errorHandler);
+                reject(new Error("Timeout: Did not receive a response from the server after joining the room."));
+            }, 10000); // 10-second timeout
+
+            const successHandler = (data: any) => {
+                clearTimeout(timeout);
+                socketRef.current?.off('game_error', errorHandler);
+                resolve(data);
+            };
+
+            const errorHandler = (data: any) => {
+                 clearTimeout(timeout);
+                 socketRef.current?.off('room_joined', successHandler);
+                 reject(new Error(data.message || "An error occurred while joining the room."));
+            };
+            
+            socketRef.current?.on('room_joined', successHandler);
+            socketRef.current?.on('game_error', errorHandler);
+        });
+
+        // Step 3: Emit the 'join_room' event with the token from the API call.
+        socketRef.current?.joinRoom(res.room_token, asSpectator);
+
+        // Step 4: Await the 'room_joined' confirmation from the server.
+        const roomData = await roomJoinedPromise;
+
+        // Step 5: Success! Update the global state in one go.
+        updateState({
+            isLoading: false,
+            joinStatus: 'success',
+            inRoom: true,
+            isSpectator: asSpectator,
+            roomKey: res.room_key,
+            stake: res.stake,
+            entryFee: res.entry_fee,
+            lastStake: res.stake,
+            lastTier: res.tier,
+            balance: res.new_balance,
+            tier: roomData.tier,
+            players: roomData.players || [],
+            spectators: roomData.spectators || 0,
+            gamePhase: roomData.state.toUpperCase() as GamePhase,
+        });
 
     } catch (err: any) {
-      updateState({ error: err.message, isLoading: false, inRoom: false, gamePhase: null })
+        updateState({
+            error: err.message,
+            isLoading: false,
+            joinStatus: 'error',
+            inRoom: false,
+            gamePhase: null,
+        });
+    } finally {
+        setTimeout(() => updateState({ joinStatus: 'idle' }), 1000);
     }
+  }, []);
+
+  const joinRoom = async (roomKey: string, asSpectator: boolean) => {
+    if (state.isLoading) return;
+    if (!state.playerId) {
+      updateState({ error: "Player not registered." });
+      return;
+    }
+    const apiCall = () => rest.joinSpecificRoom(roomKey, state.playerId!, asSpectator);
+    await joinRoomFlow(apiCall, asSpectator);
   }
 
   const quickJoin = async (tier: string) => {
-    if (state.isLoading) return
-    if (!state.playerId) return updateState({ error: "Player not registered." })
-    
-    updateState({ isLoading: true, error: null, inRoom: true, gamePhase: "WAITING", isSpectator: false })
-
-    try {
-      const tierToSend = tier === "ANY" ? null : tier
-      const res = await rest.quickJoinRoom(state.playerId, tierToSend)
-      updateState({ 
-        roomKey: res.room_key, 
-        stake: res.stake, 
-        entryFee: res.entry_fee, 
-        lastStake: res.stake, 
-        lastTier: res.tier,
-        balance: res.new_balance,
-        isLoading: false,
-      })
-      
-      pendingRoomJoin.current = { token: res.room_token, asSpectator: false }
-
-      if (socketRef.current && state.isConnected && state.isPlayerJoined) {
-        socketRef.current.joinRoom(res.room_token, false)
-      }
-
-    } catch (err: any) {
-      updateState({ error: err.message, isLoading: false, inRoom: false, gamePhase: null })
+    if (state.isLoading) return;
+    if (!state.playerId) {
+      updateState({ error: "Player not registered." });
+      return;
     }
+    const tierToSend = tier === "ANY" ? null : tier;
+    const apiCall = () => rest.quickJoinRoom(state.playerId!, tierToSend);
+    await joinRoomFlow(apiCall, false);
   }
 
   const skipRound = async () => {
