@@ -57,13 +57,9 @@ export default function RoundReveal() {
     void game.actions.leaveRoom()
   }
 
-  // const handleReveal = () => {
-  //   game.actions.revealChoice()
-  // }
-
   // --- Conditional Rendering based on Game Phase ---
 
-  // 1. REVEAL Phase: Before results are in TODO auto-reveal after timer ends
+  // 1. REVEAL Phase: Before results are in - auto-reveal handled by gameActions
   if (game.round?.phase === 'revealing' && !game.results) {
     return (
       <div className="min-h-screen flex flex-col">
@@ -72,11 +68,14 @@ export default function RoundReveal() {
           <Frame className="w-full max-w-md text-center space-y-4">
             <h1 className="text-2xl font-bold">Reveal Phase</h1>
             <p className="text-muted-foreground">
-              The selection period is over. It's time to reveal your choice to the group.
+              The selection period is over. Revealing choices automatically...
             </p>
-            {/*<Button onClick={handleReveal} size="lg">*/}
-            {/*  Reveal Your Choice*/}
-            {/*</Button>*/}
+            {game.commitState.hasCommitted && !game.commitState.hasRevealed && (
+              <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
+                <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+                Revealing your choice...
+              </div>
+            )}
           </Frame>
         </div>
       </div>
@@ -84,7 +83,21 @@ export default function RoundReveal() {
   }
 
   // 2. RESULTS Phase: Results are available
-  if (game.round?.resultsRevealed) {
+  if (game.round?.resultsRevealed || game.results) {
+    if (!game.results) {
+      return (
+        <div className="min-h-screen flex flex-col">
+          <StatusBar />
+          <div className="flex-grow flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p>Loading results...</p>
+            </div>
+          </div>
+        </div>
+      )
+    }
+
     const { winnings } = game.results
 
     const getButtonText = () => {
