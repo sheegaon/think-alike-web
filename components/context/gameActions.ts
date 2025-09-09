@@ -87,6 +87,7 @@ export const createAuthActions = ({ state, updateState, socket }: GameActionsCon
       room: null,
       players: [],
       isInRoom: false,
+      currentRoomKey: null,
       round: null,
       currentRound: null,
       results: null,
@@ -127,6 +128,7 @@ export const createRoomActions = ({ state, updateState, socket }: GameActionsCon
 
       updateState({
         isLoading: false,
+        currentRoomKey: response.room_key,
         lastTier: response.tier,
         lastStake: response.stake,
         player: {
@@ -174,6 +176,7 @@ export const createRoomActions = ({ state, updateState, socket }: GameActionsCon
 
       updateState({
         isLoading: false,
+        currentRoomKey: response.room_key,
         player: {
           ...state.player,
           balance: response.new_balance,
@@ -219,6 +222,7 @@ export const createRoomActions = ({ state, updateState, socket }: GameActionsCon
 
       updateState({
         isLoading: false,
+        currentRoomKey: response.room_key,
         notifications: addNotificationToArray(
           state.notifications,
           `Joining room as spectator...`,
@@ -245,13 +249,13 @@ export const createRoomActions = ({ state, updateState, socket }: GameActionsCon
   },
 
   leaveRoom: async (): Promise<void> => {
-    if (!state.room) {
+    if (!state.currentRoomKey) {
       return;
     }
 
     try {
       await leaveRoom(
-        state.room.id,
+        state.currentRoomKey,
         parseInt(state.player.id),
         true // at_round_end
       );
@@ -280,12 +284,12 @@ export const createRoomActions = ({ state, updateState, socket }: GameActionsCon
   },
 
   skipNext: async (): Promise<void> => {
-    if (!state.room) {
+    if (!state.currentRoomKey) {
       throw new Error('Not in a room');
     }
 
     try {
-      await skipNext(state.room.id, parseInt(state.player.id));
+      await skipNext(state.currentRoomKey, parseInt(state.player.id));
 
       updateState({
         notifications: addNotificationToArray(
@@ -494,7 +498,7 @@ export const createSocketEventHandlers = ({ state, updateState, socket }: GameAc
       isInRoom: true,
       currentView: data.spectators !== undefined && data.spectators > 0 ? 'spectator' : 'waiting-room',
       room: {
-        id: data.room_key_last_5 || 'unknown',
+        id: state.currentRoomKey || data.room_key_last_5 || 'unknown',
         tier: data.tier || 'casual',
         stake: data.stake || 0,
         entryFee: data.entry_fee || 0,
@@ -547,6 +551,7 @@ export const createSocketEventHandlers = ({ state, updateState, socket }: GameAc
       isInRoom: false,
       currentView: 'home',
       room: null,
+      currentRoomKey: null,
       round: null,
       currentRound: null,
       results: null,
@@ -576,6 +581,7 @@ export const createSocketEventHandlers = ({ state, updateState, socket }: GameAc
       isInRoom: false,
       currentView: 'home',
       room: null,
+      currentRoomKey: null,
       round: null,
       currentRound: null,
       results: null,
