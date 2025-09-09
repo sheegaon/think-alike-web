@@ -22,7 +22,7 @@ export default function RoundReveal() {
     // This effect only runs when results are available (RESULTS phase)
     if (game.results) {
       const { nouns, selectionCounts, yourChoice } = game.results
-      const totalPicks = selectionCounts.reduce((sum: any, count: any) => sum + count, 0)
+      const totalPicks = selectionCounts.reduce((sum: number, count: number) => sum + count, 0)
 
       const combinedResults = nouns.map((noun: string, index: number) => ({
         choice: noun,
