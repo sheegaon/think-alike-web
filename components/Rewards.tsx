@@ -19,30 +19,31 @@ export default function Rewards() {
   const [collectingReward, setCollectingReward] = useState<string | null>(null)
 
   const fetchQuests = useCallback(async () => {
-    if (!game.playerId) return
+    if (!game.player.id) return
     setIsLoading(true)
     setError(null)
     try {
-      const response = await getPlayerQuests(game.playerId)
+      const response = await getPlayerQuests(parseInt(game.player.id))
       setQuests(response.quests)
     } catch (err: any) {
       setError(err.message)
     } finally {
       setIsLoading(false)
     }
-  }, [game.playerId])
+  }, [game.player.id])
 
   useEffect(() => {
     void fetchQuests()
   }, [fetchQuests])
 
   const handleCollectReward = async (quest: Quest) => {
-    if (!game.playerId) return
+    if (!game.player.id) return
     setCollectingReward(quest.quest_id)
     try {
-      const response = await claimQuestReward(game.playerId, quest.quest_id)
+      const response = await claimQuestReward(parseInt(game.player.id), quest.quest_id)
       if (response.success) {
-        game.updateBalance(response.new_balance)
+        // Update player balance in game state
+        game.actions.addNotification(`Claimed ${response.reward_amount} coins!`, 'success')
         // Re-fetch quests to update the view
         await fetchQuests()
       }
@@ -115,7 +116,7 @@ export default function Rewards() {
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Rewards</h1>
-          <Button variant="outline" onClick={() => game.setCurrentView("Home")}>
+          <Button variant="outline" onClick={() => game.actions.setCurrentView("home")}>
             <Icons.Home />
           </Button>
         </div>

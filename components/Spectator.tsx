@@ -30,7 +30,7 @@ export default function Spectator() {
   }, [game.round?.selectionDeadline])
 
   const handleQueueToggle = (wantsToJoin: boolean) => {
-    game.actions.toggleSpectatorQueue(wantsToJoin)
+    game.actions.toggleSpectatorQueue()
   }
 
   const totalTime = game.stake === 50 ? 45 : 30 // This should ideally come from the backend
@@ -52,7 +52,7 @@ export default function Spectator() {
           <div className="flex items-center justify-between text-sm">
             <span>Time: {timeLeft}s</span>
             <span>
-              Players Locked In: {game.round.playersLockedIn} / {game.players.length}
+              Players Locked In: {game.round.playersLockedIn} / {game.room?.currentPlayers || 0}
             </span>
           </div>
           <ProgressBar progress={progress} />
@@ -93,7 +93,7 @@ export default function Spectator() {
           <div className="flex items-center space-x-2">
             <Checkbox
               id="queue-play"
-              checked={game.queueState.wantsToJoin}
+              checked={game.queueState.isInQueue}
               onCheckedChange={(checked) => handleQueueToggle(!!checked)}
             />
             <label htmlFor="queue-play" className="text-sm font-medium leading-none">

@@ -21,8 +21,10 @@ export {
   useGameOperations,
   useAuth,
   useGameDebug,
-  GameContext
 } from './GameContext';
+
+// Default export re-export
+export { default as GameContext } from './GameContext';
 
 // Action and context exports
 export {

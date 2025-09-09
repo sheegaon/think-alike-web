@@ -17,7 +17,7 @@ export default function Settings() {
   ]
 
   const handleSettingChange = (key: keyof GameSettings, value: boolean) => {
-    game.updateSettings({ [key]: value })
+    game.actions.updateSetting(key, value)
   }
 
   return (
@@ -27,7 +27,7 @@ export default function Settings() {
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Settings</h1>
-          <Button variant="outline" onClick={() => game.setCurrentView("Home")}>
+          <Button variant="outline" onClick={() => game.actions.setCurrentView("home")}>
             Back
           </Button>
         </div>

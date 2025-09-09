@@ -19,7 +19,7 @@ export default function Leaderboard() {
         setIsLoading(true)
         setError(null)
         // Fetch leaderboard data, passing the current player's ID to highlight them if needed
-        const response = await getLeaderboard(50, 0, game.playerId ?? undefined)
+        const response = await getLeaderboard(50, 0, game.player.id ? parseInt(game.player.id) : undefined)
         setLeaderboard(response.leaderboard)
       } catch (err: any) {
         setError(err.message)
@@ -29,7 +29,7 @@ export default function Leaderboard() {
     }
 
     void fetchLeaderboard()
-  }, [game.playerId]) // Dependency array ensures this runs when the component mounts or playerID changes
+  }, [game.player.id]) // Dependency array ensures this runs when the component mounts or playerID changes
 
   const renderContent = () => {
     if (isLoading) {
@@ -63,7 +63,7 @@ export default function Leaderboard() {
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">Leaderboard</h1>
-          <Button variant="outline" onClick={() => game.setCurrentView("Home")}>
+          <Button variant="outline" onClick={() => game.actions.setCurrentView("home")}>
             <Icons.Home />
           </Button>
         </div>

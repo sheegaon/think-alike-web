@@ -51,8 +51,16 @@ export default function Lobby() {
     void fetchRooms()
   }, [fetchRooms])
 
-  const handleJoin = (roomKey: string, asSpectator: boolean) => {
-    void game.joinRoom(roomKey, asSpectator)
+  const handleJoin = async (roomKey: string, asSpectator: boolean) => {
+    try {
+      if (asSpectator) {
+        await game.actions.spectateRoom(roomKey)
+      } else {
+        await game.actions.joinRoom(roomKey)
+      }
+    } catch (error) {
+      console.error('Failed to join room:', error)
+    }
   }
 
   return (
@@ -62,7 +70,7 @@ export default function Lobby() {
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold">All Available Rooms</h1>
-          <Button variant="outline" onClick={() => game.setCurrentView("Home")}>
+          <Button variant="outline" onClick={() => game.actions.setCurrentView("home")}>
             <Icons.Home />
           </Button>
         </div>
