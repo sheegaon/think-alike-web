@@ -79,7 +79,7 @@ export default function Spectator() {
 
       <div className="p-4 space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">Spectating</h1>
+          <h1 className="text-xl font-bold">Spectating: {game.room?.tier}</h1>
           <Button variant="outline" onClick={() => game.actions.leaveRoom()}>
             <Icons.Logout />
             Leave
