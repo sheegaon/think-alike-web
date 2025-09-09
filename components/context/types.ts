@@ -115,6 +115,7 @@ export interface GameState {
   room: Room | null;
   players: Player[];
   isInRoom: boolean;
+  currentRoomKey: string | null;
 
   // Game state
   round: Round | null;
