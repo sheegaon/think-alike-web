@@ -7,6 +7,7 @@ export const createInitialPlayer = (): Player => ({
   rating: 1000,
   wins: 0,
   isAuthenticated: false,
+  isSpectator: false,
 });
 
 export const createInitialSettings = (): GameSettings => ({

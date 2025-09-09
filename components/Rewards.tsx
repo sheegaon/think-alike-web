@@ -42,7 +42,7 @@ export default function Rewards() {
     try {
       const response = await claimQuestReward(parseInt(game.player.id), quest.quest_id)
       if (response.success) {
-        game.actions.updateBalance(response.new_balance)
+        //game.actions.updateBalance(response.new_balance)
         game.actions.addNotification(`Claimed ${response.reward_amount} coins!`, 'success')
         // Re-fetch quests to update the view
         await fetchQuests()

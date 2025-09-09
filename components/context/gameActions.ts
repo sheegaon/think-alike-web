@@ -34,6 +34,7 @@ export const createAuthActions = ({ state, updateState, socket }: GameActionsCon
           rating: player.rating,
           wins: 0, // TODO: Add wins to API response
           isAuthenticated: true,
+          isSpectator: false,
         },
         isRegistering: false,
         currentView: 'home',
@@ -79,6 +80,7 @@ export const createAuthActions = ({ state, updateState, socket }: GameActionsCon
         rating: 1000,
         wins: 0,
         isAuthenticated: false,
+        isSpectator: false,
       },
       currentView: 'login',
       previousView: null,

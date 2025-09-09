@@ -148,6 +148,7 @@ export const createSocketEventHandlers = (
             rating: 1000,
             wins: 0,
             isAuthenticated: false,
+            isSpectator: false,
           },
           currentView: 'login',
           error: message,
