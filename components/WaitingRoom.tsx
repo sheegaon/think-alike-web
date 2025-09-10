@@ -50,11 +50,7 @@ export default function WaitingRoom() {
 				</div>
 
 				<div className="text-center text-muted-foreground">
-					Game starts once {currentPlayerCount} / {minPlayers} players have joined.
-				</div>
-
-				<div className="text-center text-sm text-muted-foreground mb-4">
-					Current Pool: {pot} coins ({currentPlayerCount} players × {stake} stake)
+					Game starts once {minPlayers} players have joined, currently {currentPlayerCount} players in room.
 				</div>
 
 				<div className="space-y-4">

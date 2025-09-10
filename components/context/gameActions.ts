@@ -493,10 +493,22 @@ export const createSocketEventHandlers = ({ state, updateState, socket }: GameAc
   },
 
   // Room events
-  onRoomJoined: (data: any): void => {
+  onRoomJoined: (data: {
+    tier: string;
+    stake: number;
+    entry_fee: number;
+    capacity: number;
+    player_count: number;
+    state: string;
+    spectators: number;
+    pot: number;
+    room_key_last_5: string;
+    players: Player[];
+  }): void => {
     updateState({
       isInRoom: true,
-      currentView: data.spectators !== undefined && data.spectators > 0 ? 'spectator' : 'waiting-room',
+      currentView: data.spectators > 0 ? 'spectator' : 'waiting-room',
+      players: data.players || [],
       room: {
         id: state.currentRoomKey || data.room_key_last_5 || 'unknown',
         tier: data.tier || 'casual',
@@ -518,22 +530,28 @@ export const createSocketEventHandlers = ({ state, updateState, socket }: GameAc
     });
   },
 
-  onPlayerJoinedRoom: (data: { username: string; is_spectator: boolean; player_count: number }): void => {
+  onPlayerJoinedRoom: (data: { player: Player; player_count: number }): void => {
+    const playerExists = state.players.some(p => p.id === data.player.id);
+    const updatedPlayers = playerExists ? state.players : [...state.players, data.player];
+
     updateState({
+      players: updatedPlayers,
       room: state.room ? {
         ...state.room,
         currentPlayers: data.player_count,
       } : null,
       notifications: addNotificationToArray(
         state.notifications,
-        `${data.username} ${data.is_spectator ? 'is spectating' : 'joined the game'}`,
+        `${data.player.username} ${data.player.isSpectator ? 'is spectating' : 'joined the game'}`,
         'info'
       )
     });
   },
 
-  onPlayerLeftRoom: (data: { username: string; player_count: number }): void => {
+  onPlayerLeftRoom: (data: { player_id: string; username: string; player_count: number }): void => {
+    const updatedPlayers = state.players.filter(p => p.id !== data.player_id.toString());
     updateState({
+      players: updatedPlayers,
       room: state.room ? {
         ...state.room,
         currentPlayers: data.player_count,
