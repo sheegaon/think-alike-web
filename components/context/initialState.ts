@@ -45,6 +45,7 @@ export const createInitialState = (): GameState => ({
   room: null,
   players: [],
   isInRoom: false,
+  currentRoomKey: null,
   prizePool: 0,
   entryFee: 0,
   capacity: 12,

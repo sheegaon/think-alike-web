@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useReducer, useEffect, useCallback, ReactNode } from 'react';
 import { GameState, GameActions, Screen, EndOfRoundAction } from './types';
 import { createInitialState, loadSettingsFromStorage } from './initialState';
-import { createGameSocket, GameSocket } from '../../lib/socket';
+import { createGameSocket, GameSocket } from '@/lib/socket';
 import { createGameActions, createAllSocketEventHandlers, GameActionsContext } from './gameActions';
 
 // Extended context type that includes endOfRoundAction
@@ -35,7 +35,6 @@ const gameReducer = (state: EnhancedGameState, action: GameAction): EnhancedGame
       return {
         ...createInitialState(),
         endOfRoundAction: 'continue',
-        settings: { ...createInitialState().settings, ...loadSettingsFromStorage() }
       };
 
     case 'SET_END_OF_ROUND_ACTION':
@@ -53,22 +52,29 @@ interface GameProviderProps {
 
 // Main provider component
 export const GameProvider: React.FC<GameProviderProps> = ({ children }) => {
-  // Initialize state with loaded settings
+  // Initialize state without settings from localStorage initially.
   const initialState: EnhancedGameState = {
     ...createInitialState(),
     endOfRoundAction: 'continue',
-    settings: { ...createInitialState().settings, ...loadSettingsFromStorage() }
   };
 
   const [state, dispatch] = useReducer(gameReducer, initialState);
 
-  // Create socket instance (stable reference)
+  // Create a socket instance (stable reference)
   const socket = React.useMemo(() => createGameSocket(), []);
 
   // State update function
   const updateState = useCallback((updates: Partial<GameState>) => {
     dispatch({ type: 'UPDATE_STATE', payload: updates });
   }, []);
+
+  // Load settings from localStorage on the client side.
+  useEffect(() => {
+    const loadedSettings = loadSettingsFromStorage();
+    if (Object.keys(loadedSettings).length > 0) {
+      updateState({ settings: { ...createInitialState().settings, ...loadedSettings } });
+    }
+  }, [updateState]);
 
   // Create actions context
   const actionsContext: GameActionsContext = React.useMemo(() => ({
