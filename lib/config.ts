@@ -5,7 +5,7 @@ import herokuConfig from "../app/heroku_config.json"
 import localConfig from "../app/local_config.json"
 
 // Use local config in development, heroku config in production
-const isDevelopment = false // Force production config to use heroku_config.json
+const isDevelopment = true // Force production config to use heroku_config.json
 const rawConfig = isDevelopment ? localConfig : herokuConfig
 
 export const CONFIG = {
